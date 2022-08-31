@@ -48,7 +48,7 @@ namespace atn {
     /// <summary>
     /// The type of a <seealso cref="LexerTypeAction"/> action.
     /// </summary>
-    TYPE,
+    Type,
   };
 
 } // namespace atn

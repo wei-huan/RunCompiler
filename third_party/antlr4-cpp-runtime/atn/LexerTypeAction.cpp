@@ -20,7 +20,7 @@ int LexerTypeAction::getType() const {
 }
 
 LexerActionType LexerTypeAction::getActionType() const {
-  return LexerActionType::TYPE;
+  return LexerActionType::Type;
 }
 
 bool LexerTypeAction::isPositionDependent() const {

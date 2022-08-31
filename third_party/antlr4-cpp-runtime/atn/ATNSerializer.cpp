@@ -338,7 +338,7 @@ std::vector<size_t> ATNSerializer::serialize() {
           data.push_back(0);
           break;
 
-        case LexerActionType::TYPE:
+        case LexerActionType::Type:
         {
           int type = std::dynamic_pointer_cast<LexerTypeAction>(action)->getType();
           data.push_back(type != -1 ? type : 0xFFFF);

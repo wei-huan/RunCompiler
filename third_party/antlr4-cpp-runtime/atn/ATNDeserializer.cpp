@@ -748,7 +748,7 @@ Ref<LexerAction> ATNDeserializer::lexerActionFactory(LexerActionType type, int d
     case LexerActionType::SKIP:
       return LexerSkipAction::getInstance();
 
-    case LexerActionType::TYPE:
+    case LexerActionType::Type:
       return std::make_shared<LexerTypeAction>(data1);
 
     default:
