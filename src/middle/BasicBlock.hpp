@@ -7,7 +7,7 @@
 #include <vector>
 #include <algorithm>
 
-#include "middle/Instruction.hpp"
+#include "middle/IR.hpp"
 
 using std::list;
 using std::string;

@@ -51,25 +51,19 @@ int main(int argc, char *argv[]) {
     MyParserErrorListener errorListner;
     parser.addErrorListener(&errorListner);
     SysYParser::CompUnitContext *root = parser.compUnit();
-    try {
-        CompileUnit ir;
-        SysYAstVisitor astVisitor(ir);
-        /*语义分析*/
-        spdlog::info("语义分析 中间代码生成");
-        astVisitor.visitCompUnit(root);
-        // astVisitor.ftable.traverse();
-        // astVisitor.global_vtable.traverse();
-        /* 机器无关优化 */
-        // remove unused function
-        // remove dead basic block pass
-        // remove dead code in basic block pass
-        spdlog::info("打印 llvm 代码");
-        astVisitor.ftable.gen_code();
-        /* 机器相关优化 */
-        /* 代码生成 */
-    } catch (SyntaxError &e) {
-        cout << "error: " << e.what() << '\n';
-        return EXIT_FAILURE;
-    }
+    SysYAstVisitor astVisitor;
+    /*语义分析*/
+    spdlog::info("语义分析 中间代码生成");
+    astVisitor.visitCompUnit(root);
+    // astVisitor.ftable.traverse();
+    // astVisitor.global_vtable.traverse();
+    /* 机器无关优化 */
+    // remove unused function
+    // remove dead basic block pass
+    // remove dead code in basic block pass
+    spdlog::info("打印 llvm 代码");
+    astVisitor.ftable.gen_code();
+    /* 机器相关优化 */
+    /* 代码生成 */
     return 0;
 }

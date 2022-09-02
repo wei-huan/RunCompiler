@@ -9,7 +9,7 @@ using std::shared_ptr;
 using std::string;
 using std::vector;
 
-SysYAstVisitor::SysYAstVisitor(CompileUnit &_ir) : global_vtable(nullptr), ir(_ir) {}
+SysYAstVisitor::SysYAstVisitor() : global_vtable(nullptr) {}
 
 shared_ptr<FunctionEntry> SysYAstVisitor::get_func(string name) {
     return ftable.get_func(name);

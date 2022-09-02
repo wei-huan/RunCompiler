@@ -4,7 +4,7 @@
 #include "SysYBaseVisitor.h"
 #include "middle/BasicBlock.hpp"
 #include "middle/SymbolTable.hpp"
-#include "middle/IR.hpp";
+#include "middle/IR.hpp"
 #include "spdlog/spdlog.h"
 
 #include <stack>
@@ -20,7 +20,6 @@ class SysYAstVisitor : public SysYBaseVisitor {
     FunctionTable ftable;
     VariableTable global_vtable;
     VariableTable *cur_vtable = &global_vtable;
-    CompileUnit &ir;
     Type cur_type = Type::VOID;     // cur identifier or function type in declaration
     Type cur_num_type = Type::I32;  // I32 or Float
     string cur_func_name = "_init";
@@ -34,7 +33,7 @@ class SysYAstVisitor : public SysYBaseVisitor {
     shared_ptr<BasicBlock> cur_while_cond_bb = nullptr;
     shared_ptr<BasicBlock> cur_while_false_bb = nullptr;
 
-    SysYAstVisitor(CompileUnit &ir);
+    SysYAstVisitor();
     shared_ptr<FunctionEntry> get_func(string name);
 
     vector<int32_t> parse_const_init(SysYParser::ConstInitValContext *root,
