@@ -1,283 +1,73 @@
-/// Generate Intermediate Representation     LLVM Style      High level IR
-#pragma once
 
-#include <iostream>
-#include <memory>
-#include <optional>
-#include <string>
-#include <vector>
 
-#include "middle/SSA.hpp"
+struct Func {
+    // function
+    string name;
+    bool ignore_return_value = 0;
+    Func(string name) : name(name) {}
+};
 
-using std::optional;
-using std::ostream;
-using std::string;
-using std::unique_ptr;
-using std::vector;
-
-struct IRInstr {
-    enum OPERATOR {
-        GLOBAL,
-        ALLOCA,
-        LOAD,
-        STORE,
-        NOT,
-        NEG,
-        ADD,
-        SUB,
-        MUL,
-        DIV,
-        MOD,
-        ICMP,
-        CALL,
-        RET,
-        XOR,   // 异或
-        ZEXT,  // 0扩展
-        GEP,   // getelementptr
-        MEMSET,
-        MEMCOPY,
-        BRANCH,
-        PHI,
-    };
-    OPERATOR oper;
-    IRInstr(OPERATOR oper) : oper(oper){};
-    string get_name(OPERATOR oper) const {
-        static string names[] = {
-            "global",
-            "alloca",
-            "load",
-            "store",
-            "not",
-            "sub",
-            "add",
-            "sub",
-            "mul",
-            "sdiv",
-            "srem",
-            "icmp",
-            "call",
-            "ret",
-            "xor",
-            "zext",
-            "getelementptr",
-            "memset",
-            "memcopy",
-            "br",
-            "phi",
-        };
-        return names[(int)oper];
+struct NormalFunc : Func {
+    // function defined in compile unit (.sy file)
+    MemScope scope;
+    // local variables on stack, and args of array type
+    BB *entry = NULL;
+    // first basic block to excute
+    vector<unique_ptr<BB>> bbs;
+    // list of basic blocks in this function
+    int max_reg_id = 0, max_bb_id = 0;
+    // for id allocation
+    vector<string> reg_names;
+    void for_each(function<void(Instr *)> f) {
+        for (auto &bb : bbs)
+            bb->for_each(f);
     }
-    virtual string gen_code() const = 0;
-};
+    string get_name(Reg r) const { return reg_names.at(r.id); }
 
-struct GlobalDeclIR : IRInstr {
-    SSALeftValue var;
-    GlobalDeclIR(SSALeftValue var) : var(var), IRInstr(GLOBAL) {
-        var.is_global = true;
-    }
-    virtual string gen_code() const;
-};
-
-struct AllocaIR : IRInstr {
-    SSALeftValue var;
-    AllocaIR(SSALeftValue var) : var(var), IRInstr(ALLOCA) {}
-    virtual string gen_code() const;
-};
-
-struct LoadIR : IRInstr {
-    SSALeftValue s1;
-    SSARightValue d1;
-    LoadIR(SSARightValue d1, SSALeftValue s1) : d1(d1), s1(s1), IRInstr(LOAD) {}
-    virtual string gen_code() const;
-};
-
-struct ReturnIR : IRInstr {
-    optional<SSARightValue> ret;
-    ReturnIR(optional<SSARightValue> ret) : ret(ret), IRInstr(RET) {}
-    virtual string gen_code() const;
-};
-
-struct StoreValueIR : IRInstr {
-    SSARightValue rvalue;
-    SSALeftValue lvalue;
-    StoreValueIR(SSALeftValue lvalue, SSARightValue rvalue)
-        : lvalue(lvalue), rvalue(rvalue), IRInstr(STORE) {}
-    virtual string gen_code() const;
-};
-
-struct StoreLValueIR : IRInstr {
-    SSALeftValue lvalue;
-    SSALeftValue variable;
-    StoreLValueIR(SSALeftValue variable, SSALeftValue lvalue)
-        : variable(variable), lvalue(lvalue), IRInstr(STORE) {}
-    virtual string gen_code() const;
-};
-
-struct CalcuIR : IRInstr {
-    SSARightValue d1;
-    CalcuIR(SSARightValue d1, OPERATOR oper) : d1(d1), IRInstr(oper){};
-};
-
-struct UnaryCalcuIR : CalcuIR {
-    SSARightValue s1;
-    UnaryCalcuIR(SSARightValue d1, SSARightValue s1, OPERATOR oper) : CalcuIR(d1, oper), s1(s1){};
-    virtual string gen_code() const = 0;
-};
-
-struct NegIR : UnaryCalcuIR {
-    NegIR(SSARightValue d1, SSARightValue s1) : UnaryCalcuIR(d1, s1, NEG) {}
-    virtual string gen_code() const override;
-};
-
-struct ZExtIR : UnaryCalcuIR {
-    ZExtIR(SSARightValue d1, SSARightValue s1)
-        : UnaryCalcuIR(d1, s1, ZEXT) {}
-    virtual string gen_code() const override;
-};
-
-// struct NotIR : UnaryCalcuIR {
-//     NotIR(SSAValue d1, SSAValue s1) : UnaryCalcuIR(d1, s1, NOT) {}
-//     virtual string gen_code() const override;
-// };
-
-struct BinaryCalcuIR : CalcuIR {
-    SSARightValue s1;
-    SSARightValue s2;
-    BinaryCalcuIR(SSARightValue d1, SSARightValue s1, SSARightValue s2, OPERATOR oper) : CalcuIR(d1, oper), s1(s1), s2(s2) {}
-    virtual string gen_code() const override;
-};
-
-struct AddIR : BinaryCalcuIR {
-    AddIR(SSARightValue d1, SSARightValue s1, SSARightValue s2)
-        : BinaryCalcuIR(d1, s1, s2, ADD) {}
-};
-
-struct SubIR : BinaryCalcuIR {
-    SubIR(SSARightValue d1, SSARightValue s1, SSARightValue s2)
-        : BinaryCalcuIR(d1, s1, s2, SUB) {}
-};
-
-struct MulIR : BinaryCalcuIR {
-    MulIR(SSARightValue d1, SSARightValue s1, SSARightValue s2)
-        : BinaryCalcuIR(d1, s1, s2, MUL) {}
-};
-
-struct DivIR : BinaryCalcuIR {
-    DivIR(SSARightValue d1, SSARightValue s1, SSARightValue s2)
-        : BinaryCalcuIR(d1, s1, s2, DIV) {}
-};
-
-struct ModIR : BinaryCalcuIR {
-    ModIR(SSARightValue d1, SSARightValue s1, SSARightValue s2)
-        : BinaryCalcuIR(d1, s1, s2, MOD) {}
-};
-
-struct XorIR : BinaryCalcuIR {
-    XorIR(SSARightValue d1, SSARightValue s1, SSARightValue s2)
-        : BinaryCalcuIR(d1, s1, s2, XOR) {}
-};
-
-struct IcmpType {
-    enum ICMPType { EQ,
-                    NEQ,
-                    SGT,
-                    SGE,
-                    SLT,
-                    SLE } icmp_type;
-    IcmpType(ICMPType icmp_type) : icmp_type(icmp_type) {}
-    IcmpType(string _icmp_type) {
-        if (_icmp_type == "==") {
-            icmp_type = EQ;
-        } else if (_icmp_type == "!=") {
-            icmp_type = NEQ;
-        } else if (_icmp_type == ">") {
-            icmp_type = SGT;
-        } else if (_icmp_type == ">=") {
-            icmp_type = SGE;
-        } else if (_icmp_type == "<") {
-            icmp_type = SLT;
-        } else if (_icmp_type == "<=") {
-            icmp_type = SLE;
-        } else {
-            throw std::runtime_error("Invalid Variable Type");
-        }
-    }
-    string get_name() const {
-        static string names[] = {
-            "eq",
-            "ne",
-            "sgt",
-            "sge",
-            "slt",
-            "sle",
-        };
-        return names[(int)icmp_type];
+  private:
+    friend struct CompileUnit;
+    NormalFunc(string name) : Func(name), scope(name, 0) {
+        reg_names.push_back("?");
     }
 };
 
-struct IcmpIR : BinaryCalcuIR {
-    IcmpType icmp_type;
-    IcmpIR(SSARightValue d1, SSARightValue s1, SSARightValue s2, IcmpType icmp_type)
-        : BinaryCalcuIR(d1, s1, s2, ICMP), icmp_type(icmp_type) {}
-    virtual string gen_code() const;
+struct LibFunc : Func {
+    // extern function
+    std::unordered_map<int, bool> array_args;
+    // read/write args of array type
+    // (arg_id,1): read and write
+    // (arg_id,0): read only
+    bool in = 0,
+         out = 0; // IO side effect, in: stdin changed, out: stdout changed
+  private:
+    friend struct CompileUnit;
+    LibFunc(string name) : Func(name) {}
 };
 
-struct CallFuncIR : IRInstr {
-    string func_name;
-    vector<SSARightValue> args;
-    optional<SSARightValue> ret;
-    CallFuncIR(string func_name, optional<SSARightValue> ret, vector<SSARightValue> args)
-        : func_name(func_name), ret(ret), args(args), IRInstr(CALL) {}
-    virtual string gen_code() const;
+struct CompileUnit {
+    // the whole program
+    MemScope scope; // global arrays
+    std::map<string, unique_ptr<NormalFunc>> funcs;
+    // functions defined in .sy file
+    std::map<string, unique_ptr<LibFunc>> lib_funcs;
+    // functions defined in library
+    CompileUnit();
+    NormalFunc *new_NormalFunc(string _name) {
+        NormalFunc *f = new NormalFunc(_name);
+        funcs[_name] = unique_ptr<NormalFunc>(f);
+        return f;
+    }
+    void map(function<void(CompileUnit &)> f) { f(*this); }
+    void for_each(function<void(NormalFunc *)> f) {
+        for (auto &kv : funcs)
+            f(kv.second.get());
+    }
+
+  private:
+    LibFunc *new_LibFunc(string _name, bool ignore_return_value) {
+        LibFunc *f = new LibFunc(_name);
+        f->ignore_return_value = ignore_return_value;
+        lib_funcs[_name] = unique_ptr<LibFunc>(f);
+        return f;
+    }
 };
-
-// getelementptr
-struct GEPIR : IRInstr {
-    SSALeftValue s1;
-    SSALeftValue d1;
-    SSARightValue index0;
-    SSARightValue index1;
-    GEPIR(SSALeftValue d1, SSALeftValue s1, SSARightValue index0, SSARightValue index1)
-        : IRInstr(GEP), d1(d1), s1(s1), index0(index0), index1(index1){};
-    virtual string gen_code() const override;
-};
-
-// struct MemSetIR : IRInstr {
-//     int32_t len;
-//     int32_t value;
-//     SSALeftValue d1;
-//     MemSetIR(SSALeftValue d1, int32_t len, int32_t value)
-//         : IRInstr(MEMSET), d1(d1), len(len), value(value){};
-//     virtual string gen_code() const override;
-// };
-
-// struct MemCopyIR : IRInstr {
-//     int32_t len;
-//     SSALeftValue s1;
-//     SSALeftValue d1;
-//     MemCopyIR(SSALeftValue d1, SSALeftValue s1, int32_t len)
-//         : IRInstr(MEMCOPY), d1(d1), s1(s1), len(len){};
-//     virtual string gen_code() const override;
-// };
-
-struct BranchIR : IRInstr {
-    int32_t label1;
-    optional<int32_t> label2;
-    optional<SSARightValue> cond;
-    BranchIR(int32_t label1)
-        : IRInstr(BRANCH), label1(label1){};
-    BranchIR(SSARightValue cond, int32_t label1, int32_t label2)
-        : IRInstr(BRANCH), cond(cond), label1(label1), label2(label2){};
-    virtual string gen_code() const override;
-};
-
-// struct PhiIR : IRInstr {
-//     int32_t prev_label1;
-//     int32_t prev_label2;
-//     SSARightValue s1;
-//     SSARightValue s2;
-//     SSARightValue d1;
-//     PhiIR(SSARightValue d1, SSARightValue s1, SSARightValue s2, int32_t prev_label1, int32_t prev_label2)
-//         : IRInstr(BRANCH), d1(d1), s1(s1), s2(s2), prev_label1(prev_label1), prev_label2(prev_label2){};
-//     virtual string gen_code() const override;
-// };

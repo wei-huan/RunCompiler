@@ -3,9 +3,11 @@
 #include <strstream>
 
 #include "antlr4-runtime.h"
+#include "common/errors.hpp"
 #include "frontend/SysYAstVisitor.hpp"
 #include "frontend/SysYLexer.h"
 #include "frontend/SysYParser.h"
+#include "middle/IR.hpp"
 #include "middle/SymbolTable.hpp"
 #include "spdlog/spdlog.h"
 
@@ -49,24 +51,25 @@ int main(int argc, char *argv[]) {
     MyParserErrorListener errorListner;
     parser.addErrorListener(&errorListner);
     SysYParser::CompUnitContext *root = parser.compUnit();
-    // try {
-    //     astVisitor.visit(tree);
-    //     std::cout << tree->toStringTree(&parser) << std::endl;
-    //     return 0;
-    // } catch (std::invalid_argument &e) {
-    //     std::cout << e.what() << std::endl;
-    //     return EXIT_FAILURE;
-    // }
-    SysYAstVisitor astVisitor;
-    /*语义分析*/
-    spdlog::info("语义分析 中间代码生成");
-    astVisitor.visitCompUnit(root);
-    // astVisitor.ftable.traverse();
-    // astVisitor.global_vtable.traverse();
-    spdlog::info("打印 llvm 代码");
-    astVisitor.ftable.gen_code();
-    /* 机器无关优化 */
-    /* 机器相关优化 */
-    /* 代码生成 */
+    try {
+        CompileUnit ir;
+        SysYAstVisitor astVisitor(ir);
+        /*语义分析*/
+        spdlog::info("语义分析 中间代码生成");
+        astVisitor.visitCompUnit(root);
+        // astVisitor.ftable.traverse();
+        // astVisitor.global_vtable.traverse();
+        /* 机器无关优化 */
+        // remove unused function
+        // remove dead basic block pass
+        // remove dead code in basic block pass
+        spdlog::info("打印 llvm 代码");
+        astVisitor.ftable.gen_code();
+        /* 机器相关优化 */
+        /* 代码生成 */
+    } catch (SyntaxError &e) {
+        cout << "error: " << e.what() << '\n';
+        return EXIT_FAILURE;
+    }
     return 0;
 }

@@ -9,7 +9,7 @@ using std::shared_ptr;
 using std::string;
 using std::vector;
 
-SysYAstVisitor::SysYAstVisitor() : global_vtable(nullptr), cur_type(Type::VOID) {}
+SysYAstVisitor::SysYAstVisitor(CompileUnit &_ir) : global_vtable(nullptr), ir(_ir) {}
 
 shared_ptr<FunctionEntry> SysYAstVisitor::get_func(string name) {
     return ftable.get_func(name);
@@ -21,6 +21,8 @@ antlrcpp::Any SysYAstVisitor::visitCompUnit(SysYParser::CompUnitContext *ctx) {
     auto func_entry = std::make_shared<FunctionEntry>(cur_func_name, Type::VOID);
     ftable.register_func(cur_func_name, func_entry);
     cur_bb = func_entry->alloc_bb();
+    // TODO: register lib func
+    // register_lib_functions();
     auto res = visitChildren(ctx);
     spdlog::debug("leaveCompUnit");
     return res;
@@ -446,7 +448,10 @@ antlrcpp::Any SysYAstVisitor::visitBlockStmt(
 antlrcpp::Any SysYAstVisitor::visitIfStmt1(SysYParser::IfStmt1Context *ctx) {
     spdlog::debug("visitIfStmt1");
     auto cur_func = ftable.get_func(cur_func_name);
+    cond_bb_stack.push(cur_bb);
     ctx->cond()->accept(this);
+    cur_bb = cond_bb_stack.top();
+    cond_bb_stack.pop();
     cur_true_bb->push_prev(cur_bb->label);
     cur_false_bb->push_prev(cur_bb->label);
     true_bb_stack.push(cur_true_bb);
@@ -467,26 +472,30 @@ antlrcpp::Any SysYAstVisitor::visitIfStmt1(SysYParser::IfStmt1Context *ctx) {
 antlrcpp::Any SysYAstVisitor::visitIfStmt2(SysYParser::IfStmt2Context *ctx) {
     spdlog::debug("visitIfStmt2");
     auto cur_func = ftable.get_func(cur_func_name);
+    cond_bb_stack.push(cur_bb);
     ctx->cond()->accept(this);
+    cur_bb = cond_bb_stack.top();
+    cond_bb_stack.pop();
     cur_true_bb->push_prev(cur_bb->label);
     cur_false_bb->push_prev(cur_bb->label);
     true_bb_stack.push(cur_true_bb);
     false_bb_stack.push(cur_false_bb);
     cur_bb = cur_true_bb;
     ctx->stmt(0)->accept(this);
+    auto true_branch_last_bb = cur_bb;
     cur_false_bb = false_bb_stack.top();
-    shared_ptr<BasicBlock> true_branch_last_bb = cur_bb;
     cur_bb = cur_false_bb;
     ctx->stmt(1)->accept(this);
+    auto false_branch_last_bb = cur_bb;
     cur_true_bb = true_bb_stack.top();
     true_bb_stack.pop();
     cur_false_bb = false_bb_stack.top();
     false_bb_stack.pop();
     cur_bb = cur_func->alloc_bb();
     true_branch_last_bb->push_ir_instr(new BranchIR(cur_bb->label));
-    cur_false_bb->push_ir_instr(new BranchIR(cur_bb->label));
+    false_branch_last_bb->push_ir_instr(new BranchIR(cur_bb->label));
     cur_bb->push_prev(true_branch_last_bb->label);
-    cur_bb->push_prev(cur_false_bb->label);
+    cur_bb->push_prev(false_branch_last_bb->label);
     spdlog::debug("leaveIfStmt2");
     return nullptr;
 }
@@ -502,9 +511,13 @@ antlrcpp::Any SysYAstVisitor::visitWhileStmt(
     ctx->cond()->accept(this);
     cur_true_bb->push_prev(cur_cond_bb->label);
     cur_false_bb->push_prev(cur_cond_bb->label);
+    cond_bb_stack.push(cur_cond_bb);
     true_bb_stack.push(cur_true_bb);
     false_bb_stack.push(cur_false_bb);
-    cond_bb_stack.push(cur_cond_bb);
+    // TODO: while cond stack
+    cur_while_cond_bb = cur_cond_bb;
+    // TODO: while false stack
+    cur_while_false_bb = cur_false_bb;
     cur_bb = cur_true_bb;
     ctx->stmt()->accept(this);
     cur_cond_bb = cond_bb_stack.top();
@@ -524,6 +537,9 @@ antlrcpp::Any SysYAstVisitor::visitBreakStmt(
     SysYParser::BreakStmtContext *ctx) {
     spdlog::debug("visitBreakStmt");
     auto res = visitChildren(ctx);
+    cur_bb->push_ir_instr(new BranchIR(cur_while_false_bb->label));
+    auto cur_func = ftable.get_func(cur_func_name);
+    cur_bb = cur_func->alloc_bb();  // unreachable block, drop in next pass
     spdlog::debug("leaveBreakStmt");
     return res;
 }
@@ -532,6 +548,9 @@ antlrcpp::Any SysYAstVisitor::visitContinueStmt(
     SysYParser::ContinueStmtContext *ctx) {
     spdlog::debug("visitContinueStmt");
     auto res = visitChildren(ctx);
+    cur_bb->push_ir_instr(new BranchIR(cur_while_cond_bb->label));
+    auto cur_func = ftable.get_func(cur_func_name);
+    cur_bb = cur_func->alloc_bb();  // unreachable block, drop in next pass
     spdlog::debug("leaveContinueStmt");
     return res;
 }
@@ -539,7 +558,7 @@ antlrcpp::Any SysYAstVisitor::visitContinueStmt(
 antlrcpp::Any SysYAstVisitor::visitReturnStmt(
     SysYParser::ReturnStmtContext *ctx) {
     spdlog::debug("visitReturnStmt");
-    shared_ptr<FunctionEntry> cur_func = ftable.get_func(cur_func_name);
+    auto cur_func = ftable.get_func(cur_func_name);
     if (ctx->exp()) {
         if (cur_func->return_type.type == Type::VOID) {
             throw RuntimeError("return a value in void function");
@@ -568,10 +587,10 @@ antlrcpp::Any SysYAstVisitor::visitExp(SysYParser::ExpContext *ctx) {
 antlrcpp::Any SysYAstVisitor::visitCond(SysYParser::CondContext *ctx) {
     spdlog::debug("visitCond");
     auto cur_func = ftable.get_func(cur_func_name);
+    cur_true_bb = cur_func->alloc_bb();
+    cur_false_bb = cur_func->alloc_bb();
     auto res = visitChildren(ctx);
     if (res.isNotNull()) {
-        cur_true_bb = cur_func->alloc_bb();
-        cur_false_bb = cur_func->alloc_bb();
         cur_bb->push_ir_instr(new BranchIR(res, cur_true_bb->label, cur_false_bb->label));
     } else {
         RuntimeError("shoud have condition");
@@ -989,25 +1008,20 @@ antlrcpp::Any SysYAstVisitor::visitEq2(SysYParser::Eq2Context *ctx) {
 
 antlrcpp::Any SysYAstVisitor::visitLAnd2(SysYParser::LAnd2Context *ctx) {
     spdlog::debug("visitLAnd2");
-    auto lhs = ctx->lAndExp()->accept(this);
     auto cur_func = ftable.get_func(cur_func_name);
-    auto eq_bb = cur_func->alloc_bb();
-    if (!cur_false_bb) {
-        false_bb_stack.push(cur_false_bb);
-        cur_false_bb = cur_func->alloc_bb();
-    }
-    cur_bb->push_ir_instr(new BranchIR(lhs, eq_bb->label, cur_false_bb->label));
-    eq_bb->push_prev(cur_bb->label);
+    auto lhs = ctx->lAndExp()->accept(this);
+    auto eq_cond_bb = cur_func->alloc_bb();
+    cur_bb->push_ir_instr(new BranchIR(lhs, eq_cond_bb->label, cur_false_bb->label));
+    eq_cond_bb->push_prev(cur_bb->label);
     cur_false_bb->push_prev(cur_bb->label);
-    cur_bb = eq_bb;
+    cond_bb_stack.push(cur_bb);
+    cur_bb = eq_cond_bb;
     auto rhs = ctx->eqExp()->accept(this);
-    if (!cur_true_bb) {
-        true_bb_stack.push(cur_true_bb);
-        cur_true_bb = cur_func->alloc_bb();
-    }
     cur_bb->push_ir_instr(new BranchIR(rhs, cur_true_bb->label, cur_false_bb->label));
     cur_true_bb->push_prev(cur_bb->label);
     cur_false_bb->push_prev(cur_bb->label);
+    cur_bb = cond_bb_stack.top();
+    cond_bb_stack.pop();
     spdlog::debug("leaveLAnd2");
     return nullptr;
 }
@@ -1028,20 +1042,20 @@ antlrcpp::Any SysYAstVisitor::visitLOr1(SysYParser::LOr1Context *ctx) {
 
 antlrcpp::Any SysYAstVisitor::visitLOr2(SysYParser::LOr2Context *ctx) {
     spdlog::debug("visitLOr2");
-    auto lhs = ctx->lOrExp()->accept(this);
     auto cur_func = ftable.get_func(cur_func_name);
-    if (!cur_true_bb) {
-        true_bb_stack.push(cur_true_bb);
-        cur_true_bb = cur_func->alloc_bb();
-    }
-    auto and_bb = cur_func->alloc_bb();
-    cur_bb->push_ir_instr(new BranchIR(lhs, cur_true_bb->label, and_bb->label));
+    auto lhs = ctx->lOrExp()->accept(this);
+    auto and_cond_bb = cur_func->alloc_bb();
+    cur_bb->push_ir_instr(new BranchIR(lhs, cur_true_bb->label, and_cond_bb->label));
     cur_true_bb->push_prev(cur_bb->label);
-    and_bb->push_prev(cur_bb->label);
-    cur_bb = and_bb;
+    and_cond_bb->push_prev(cur_bb->label);
+    cond_bb_stack.push(cur_bb);
+    cur_bb = and_cond_bb;
     auto rhs = ctx->lAndExp()->accept(this);
-    cur_true_bb = true_bb_stack.top();
-    true_bb_stack.pop();
+    cur_bb->push_ir_instr(new BranchIR(rhs, cur_true_bb->label, cur_false_bb->label));
+    cur_true_bb->push_prev(cur_bb->label);
+    cur_false_bb->push_prev(cur_bb->label);
+    cur_bb = cond_bb_stack.top();
+    cond_bb_stack.pop();
     spdlog::debug("leaveLOr2");
     return nullptr;
 }
