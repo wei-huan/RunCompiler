@@ -183,6 +183,16 @@ antlrcpp::Any SysYAstVisitor::visitUninitVarDef(
     SysYParser::UninitVarDefContext *ctx) {
     spdlog::debug("visitUninitVarDef");
     string ident_name = ctx->Identifier()->getText();
+    // check wheather variable e
+    if (cur_func_name == "_init") {
+        if (ftable.is_exist(ident_name) || global_vtable.is_exist(ident_name)) {
+            throw DuplicateGlobalName(ident_name);
+        }
+    } else {
+        if (ftable.is_exist(ident_name) || cur_vtable->is_exist(ident_name)) {
+            throw DuplicateLocalName(ident_name);
+        }
+    }
     shared_ptr<FunctionEntry> cur_func = ftable.get_func(cur_func_name);
     int left_id = cur_func->alloc_ssa();
     vector<int32_t> shape;
@@ -278,6 +288,16 @@ antlrcpp::Any SysYAstVisitor::visitInitVarDef(
     SysYParser::InitVarDefContext *ctx) {
     spdlog::debug("visitInitVarDef");
     string ident_name = ctx->Identifier()->getText();
+    // check wheather variable existed
+    if (cur_func_name == "_init") {
+        if (ftable.is_exist(ident_name) || global_vtable.is_exist(ident_name)) {
+            throw DuplicateGlobalName(ident_name);
+        }
+    } else {
+        if (ftable.is_exist(ident_name) || cur_vtable->is_exist(ident_name)) {
+            throw DuplicateLocalName(ident_name);
+        }
+    }
     shared_ptr<FunctionEntry> cur_func = ftable.get_func(cur_func_name);
     int left_id = cur_func->alloc_ssa();
     vector<int32_t> shape;
@@ -334,10 +354,14 @@ antlrcpp::Any SysYAstVisitor::visitListInitval(
     return nullptr;
 }
 
+// TODO: deal with some case that function return nothing but need a return value
 antlrcpp::Any SysYAstVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
     spdlog::debug("visitFuncDef");
-    Type return_type(ctx->funcType()->getText());
     string func_name(ctx->Identifier()->getText());
+    if (ftable.is_exist(func_name) || global_vtable.is_exist(func_name)) {
+        throw DuplicateGlobalName(func_name);
+    }
+    Type return_type(ctx->funcType()->getText());
     auto func_entry = make_shared<FunctionEntry>(func_name, return_type);
     ftable.register_func(func_name, func_entry);
     cur_func_name = func_name;
@@ -520,6 +544,8 @@ antlrcpp::Any SysYAstVisitor::visitWhileStmt(
     cur_while_false_bb = cur_false_bb;
     cur_bb = cur_true_bb;
     ctx->stmt()->accept(this);
+    cur_while_cond_bb = nullptr;
+    cur_while_false_bb = nullptr;
     cur_cond_bb = cond_bb_stack.top();
     cond_bb_stack.pop();
     cur_true_bb = true_bb_stack.top();
@@ -537,6 +563,9 @@ antlrcpp::Any SysYAstVisitor::visitBreakStmt(
     SysYParser::BreakStmtContext *ctx) {
     spdlog::debug("visitBreakStmt");
     auto res = visitChildren(ctx);
+    if (!cur_while_false_bb) {
+        throw InvalidBreak();
+    }
     cur_bb->push_ir_instr(new BranchIR(cur_while_false_bb->label));
     auto cur_func = ftable.get_func(cur_func_name);
     cur_bb = cur_func->alloc_bb();  // unreachable block, drop in next pass
@@ -548,6 +577,9 @@ antlrcpp::Any SysYAstVisitor::visitContinueStmt(
     SysYParser::ContinueStmtContext *ctx) {
     spdlog::debug("visitContinueStmt");
     auto res = visitChildren(ctx);
+    if (!cur_while_cond_bb) {
+        throw InvalidContinue();
+    }
     cur_bb->push_ir_instr(new BranchIR(cur_while_cond_bb->label));
     auto cur_func = ftable.get_func(cur_func_name);
     cur_bb = cur_func->alloc_bb();  // unreachable block, drop in next pass
@@ -561,7 +593,7 @@ antlrcpp::Any SysYAstVisitor::visitReturnStmt(
     auto cur_func = ftable.get_func(cur_func_name);
     if (ctx->exp()) {
         if (cur_func->return_type.type == Type::VOID) {
-            throw RuntimeError("return a value in void function");
+            throw VoidFuncReturnValueUsed();
         } else {
             auto rvalue = ctx->exp()->accept(this).as<SSARightValue>();
             cur_bb->push_ir_instr(new ReturnIR(rvalue));
@@ -740,7 +772,7 @@ antlrcpp::Any SysYAstVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
     } else {
         string func_name = ctx->Identifier()->getText();
         shared_ptr<FunctionEntry> callee_entry = ftable.get_func(func_name);
-        if (!callee_entry) throw RuntimeError("Unrecognized Function Name");
+        if (!callee_entry) throw UnrecognizedFuncName(func_name);
         shared_ptr<FunctionEntry> caller_entry =
             ftable.get_func(cur_func_name);
         vector<SSARightValue> args;

@@ -53,17 +53,26 @@ int main(int argc, char *argv[]) {
     SysYParser::CompUnitContext *root = parser.compUnit();
     SysYAstVisitor astVisitor;
     /*语义分析*/
-    spdlog::info("语义分析 中间代码生成");
-    astVisitor.visitCompUnit(root);
-    // astVisitor.ftable.traverse();
-    // astVisitor.global_vtable.traverse();
-    /* 机器无关优化 */
-    // remove unused function
-    // remove dead basic block pass
-    // remove dead code in basic block pass
-    spdlog::info("打印 llvm 代码");
-    astVisitor.ftable.gen_code();
+    try {
+        spdlog::info("语义分析 中间代码生成");
+        astVisitor.visitCompUnit(root);
+        // astVisitor.ftable.traverse();
+        // astVisitor.global_vtable.traverse();
+        /* 机器无关优化 */
+        // remove unused function
+        // remove dead basic block pass
+        // remove dead code in basic block pass
+        spdlog::info("打印 llvm 代码");
+        astVisitor.ftable.gen_code();
+    } catch (SyntaxError &e) {
+        cout << "error: " << e.what() << '\n';
+        return EXIT_FAILURE;
+    }
     /* 机器相关优化 */
     /* 代码生成 */
     return 0;
+}
+
+int foo() {
+
 }
