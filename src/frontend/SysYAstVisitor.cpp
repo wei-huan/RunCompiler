@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <memory>
+#include <optional>
 
 using std::make_shared;
 using std::pair;
@@ -399,7 +400,34 @@ antlrcpp::Any SysYAstVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
       cur_vtable->append(arg.first, arg.second);
     }
   }
+
+  // 分配返回值变量空间
+  if (return_type.get_type() != Type::VOID) {
+    auto ret_id = func_entry->alloc_ssa();
+    SSALeftValue lvalue = SSALeftValue(ret_id, return_type);
+    ret_value = lvalue;
+    cur_bb->push_ir_instr(new AllocaIR(lvalue));
+    cur_bb->push_ir_instr(
+        new StoreValueIR(lvalue, SSARightValue(return_type, 0)));
+  }
+
   ctx->block()->accept(this);
+
+  // 添加返回语句
+  if (ret_bb_opt != std::nullopt) {
+    auto ret_bb = ret_bb_opt.value();
+    if (return_type.get_type() != Type::VOID) {
+      auto ret_rvalue =
+          SSARightValue(func_entry->alloc_ssa(), return_type.get_type());
+      ret_bb->push_ir_instr(new LoadIR(ret_rvalue, ret_value.value()));
+      ret_bb->push_ir_instr(new ReturnIR(ret_rvalue));
+    } else {
+      ret_bb->push_ir_instr(new ReturnIR(std::nullopt));
+    }
+  }
+
+  ret_value = std::nullopt;
+  ret_bb_opt = std::nullopt;
   cur_func_name = "_init";
   cur_vtable = cur_vtable->ptable;
   spdlog::debug("leaveFuncDef");
