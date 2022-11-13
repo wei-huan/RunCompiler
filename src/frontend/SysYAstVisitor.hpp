@@ -9,7 +9,7 @@
 
 #include <stack>
 
-using std::stack;
+using std::vector;
 
 class SysYAstVisitor : public SysYBaseVisitor {
     enum ValueMode { Normal,
@@ -25,11 +25,11 @@ class SysYAstVisitor : public SysYBaseVisitor {
     string cur_func_name = "_init";
     shared_ptr<BasicBlock> cur_bb = nullptr;
     shared_ptr<BasicBlock> cur_true_bb = nullptr;
-    stack<shared_ptr<BasicBlock>> true_bb_stack;
+    vector<shared_ptr<BasicBlock>> true_bb_stack;
     shared_ptr<BasicBlock> cur_false_bb = nullptr;
-    stack<shared_ptr<BasicBlock>> false_bb_stack;
+    vector<shared_ptr<BasicBlock>> false_bb_stack;
     shared_ptr<BasicBlock> cur_cond_bb = nullptr;
-    stack<shared_ptr<BasicBlock>> cond_bb_stack;
+    vector<shared_ptr<BasicBlock>> cond_bb_stack;
     shared_ptr<BasicBlock> cur_while_cond_bb = nullptr;
     shared_ptr<BasicBlock> cur_while_false_bb = nullptr;
 
