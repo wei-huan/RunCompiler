@@ -10,7 +10,6 @@
 #include "common/errors.hpp"
 #include "middle/IR.hpp"
 
-using std::count;
 using std::list;
 using std::string;
 using std::unique_ptr;

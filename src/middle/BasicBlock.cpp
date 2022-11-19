@@ -1,4 +1,6 @@
 #include "BasicBlock.hpp"
+#include "spdlog/spdlog.h"
+#include <string>
 
 void BasicBlock::push_ir_instr(IRInstr *x) {
   // 检查基本块是否已经有出口了
@@ -15,7 +17,7 @@ void BasicBlock::push_ir_instr(IRInstr *x) {
 
 void BasicBlock::push_prev(int prev_label) {
   // //! check if there is already exists, avoid redundance
-  if (!count(prev_bb.begin(), prev_bb.end(), prev_label)) {
+  if (count(prev_bb.begin(), prev_bb.end(), prev_label)) {
     throw RuntimeError("basic block " + std::to_string(label) +
                        " already have previous basic block " +
                        std::to_string(prev_label));

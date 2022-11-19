@@ -370,11 +370,12 @@ SysYAstVisitor::visitListInitval(SysYParser::ListInitvalContext *ctx) {
 // TODO: deal with some case that function return nothing but need a return
 // value
 antlrcpp::Any SysYAstVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
-  spdlog::debug("visitFuncDef");
+  spdlog::debug("visitFuncDef ");
   string func_name(ctx->Identifier()->getText());
   if (ftable.is_exist(func_name) || global_vtable.is_exist(func_name)) {
     throw DuplicateGlobalName(func_name);
   }
+  spdlog::debug("Function: " + func_name);
   Type return_type(ctx->funcType()->getText());
   auto func_entry = make_shared<FunctionEntry>(func_name, return_type);
   ftable.register_func(func_name, func_entry);
@@ -430,7 +431,7 @@ antlrcpp::Any SysYAstVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
   ret_bb_opt = std::nullopt;
   cur_func_name = "_init";
   cur_vtable = cur_vtable->ptable;
-  spdlog::debug("leaveFuncDef");
+  spdlog::debug("leaveFuncDef " + func_name);
   return nullptr;
 }
 
@@ -542,8 +543,11 @@ antlrcpp::Any SysYAstVisitor::visitIfStmt2(SysYParser::IfStmt2Context *ctx) {
   ctx->cond()->accept(this);
   cur_bb = cond_bb_stack.back();
   cond_bb_stack.pop_back();
+  spdlog::debug("Here0");
   cur_true_bb->push_prev(cur_bb->label);
+  spdlog::debug("Here1");
   cur_false_bb->push_prev(cur_bb->label);
+  spdlog::debug("Here2");
   true_bb_stack.push_back(cur_true_bb);
   false_bb_stack.push_back(cur_false_bb);
   cur_bb = cur_true_bb;
@@ -610,7 +614,7 @@ SysYAstVisitor::visitBreakStmt(SysYParser::BreakStmtContext *ctx) {
   }
   cur_bb->push_ir_instr(new BranchIR(cur_while_false_bb->label));
   auto cur_func = ftable.get_func(cur_func_name);
-  cur_bb = cur_func->alloc_bb(); // unreachable block, drop in next pass
+  cur_bb = cur_func->alloc_bb();    // unreachable block, drop in next pass
   spdlog::debug("leaveBreakStmt");
   return res;
 }
