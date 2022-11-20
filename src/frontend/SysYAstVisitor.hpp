@@ -25,8 +25,6 @@ public:
   optional<shared_ptr<BasicBlock>> ret_bb_opt = std::nullopt;
   string cur_func_name = "_init";
   shared_ptr<BasicBlock> cur_bb = nullptr;
-  // indicator for branch sentence
-  shared_ptr<BasicBlock> cur_true_bb = nullptr;
   vector<shared_ptr<BasicBlock>> true_bb_stack;
   shared_ptr<BasicBlock> cur_false_bb = nullptr;
   vector<shared_ptr<BasicBlock>> false_bb_stack;
