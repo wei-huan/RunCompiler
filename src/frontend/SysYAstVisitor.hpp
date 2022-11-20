@@ -26,7 +26,6 @@ public:
   string cur_func_name = "_init";
   shared_ptr<BasicBlock> cur_bb = nullptr;
   vector<shared_ptr<BasicBlock>> true_bb_stack;
-  shared_ptr<BasicBlock> cur_false_bb = nullptr;
   vector<shared_ptr<BasicBlock>> false_bb_stack;
   shared_ptr<BasicBlock> cur_cond_bb = nullptr;
   vector<shared_ptr<BasicBlock>> cond_bb_stack;

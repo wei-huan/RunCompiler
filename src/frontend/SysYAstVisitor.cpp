@@ -519,16 +519,15 @@ antlrcpp::Any SysYAstVisitor::visitIfStmt1(SysYParser::IfStmt1Context *ctx) {
   ctx->cond()->accept(this);
   cur_bb = cond_bb_stack.back();
   cond_bb_stack.pop_back();
-  cur_false_bb->push_prev(cur_bb->label);
-  false_bb_stack.push_back(cur_false_bb);
   cur_bb = true_bb_stack.back();
   ctx->stmt()->accept(this);
   true_bb_stack.pop_back();
-  cur_false_bb = false_bb_stack.back();
+  auto false_branch_bb = false_bb_stack.back();
   false_bb_stack.pop_back();
-  cur_bb->push_ir_instr(new BranchIR(cur_false_bb->label));
-  cur_false_bb->push_prev(cur_bb->label);
-  cur_bb = cur_false_bb;
+  // true branch last basic block -> false basic block
+  cur_bb->push_ir_instr(new BranchIR(false_branch_bb->label));
+  false_branch_bb->push_prev(cur_bb->label);
+  cur_bb = false_branch_bb;
   spdlog::debug("leaveIfStmt1");
   return nullptr;
 }
@@ -540,19 +539,14 @@ antlrcpp::Any SysYAstVisitor::visitIfStmt2(SysYParser::IfStmt2Context *ctx) {
   ctx->cond()->accept(this);
   cur_bb = cond_bb_stack.back();
   cond_bb_stack.pop_back();
-  spdlog::debug("Here0");
-  // cur_false_bb->push_prev(cur_bb->label);
-  spdlog::debug("Here2");
-  false_bb_stack.push_back(cur_false_bb);
   cur_bb = true_bb_stack.back();
   ctx->stmt(0)->accept(this);
   auto true_branch_last_bb = cur_bb;
-  cur_false_bb = false_bb_stack.back();
-  cur_bb = cur_false_bb;
+  auto false_branch_bb = false_bb_stack.back();
+  cur_bb = false_branch_bb;
   ctx->stmt(1)->accept(this);
   auto false_branch_last_bb = cur_bb;
   true_bb_stack.pop_back();
-  cur_false_bb = false_bb_stack.back();
   false_bb_stack.pop_back();
   cur_bb = cur_func->alloc_bb();
   true_branch_last_bb->push_ir_instr(new BranchIR(cur_bb->label));
@@ -568,29 +562,29 @@ SysYAstVisitor::visitWhileStmt(SysYParser::WhileStmtContext *ctx) {
   spdlog::debug("visitWhileStmt");
   auto cur_func = ftable.get_func(cur_func_name);
   cur_cond_bb = cur_func->alloc_bb();
-  cur_cond_bb->push_prev(cur_bb->label);
   cur_bb->push_ir_instr(new BranchIR(cur_cond_bb->label));
+  cur_cond_bb->push_prev(cur_bb->label);
   cur_bb = cur_cond_bb;
   ctx->cond()->accept(this);
-  cur_false_bb->push_prev(cur_cond_bb->label);
   cond_bb_stack.push_back(cur_cond_bb);
-  false_bb_stack.push_back(cur_false_bb);
   // TODO: while cond stack
   cur_while_cond_bb = cur_cond_bb;
   // TODO: while false stack
-  cur_while_false_bb = cur_false_bb;
+  cur_while_false_bb = false_bb_stack.back();
   cur_bb = true_bb_stack.back();
+  spdlog::info("Here 00");
   ctx->stmt()->accept(this);
-  cur_while_cond_bb = nullptr;
-  cur_while_false_bb = nullptr;
+  spdlog::info("Here 01");
   cur_cond_bb = cond_bb_stack.back();
   cond_bb_stack.pop_back();
-  true_bb_stack.pop_back();
-  cur_false_bb = false_bb_stack.back();
-  false_bb_stack.pop_back();
+  // last while true basic block to cond basic block
   cur_bb->push_ir_instr(new BranchIR(cur_cond_bb->label));
   cur_cond_bb->push_prev(cur_bb->label);
-  cur_bb = cur_false_bb;
+  cur_while_cond_bb = nullptr;
+  cur_while_false_bb = nullptr;
+  true_bb_stack.pop_back();
+  cur_bb = false_bb_stack.back();
+  false_bb_stack.pop_back();
   spdlog::debug("leaveWhileStmt");
   return nullptr;
 }
@@ -656,12 +650,17 @@ antlrcpp::Any SysYAstVisitor::visitCond(SysYParser::CondContext *ctx) {
   spdlog::debug("visitCond");
   auto cur_func = ftable.get_func(cur_func_name);
   auto true_branch_bb = cur_func->alloc_bb();
+  auto false_branch_bb = cur_func->alloc_bb();
   true_bb_stack.push_back(true_branch_bb);
-  cur_false_bb = cur_func->alloc_bb();
+  false_bb_stack.push_back(false_branch_bb);
   auto res = visitChildren(ctx);
   if (res.isNotNull()) {
+    true_branch_bb = true_bb_stack.back();
+    false_branch_bb = false_bb_stack.back();
     cur_bb->push_ir_instr(
-        new BranchIR(res, true_branch_bb->label, cur_false_bb->label));
+        new BranchIR(res, true_branch_bb->label, false_branch_bb->label));
+    true_branch_bb->push_prev(cur_bb->label);
+    false_branch_bb->push_prev(cur_bb->label);
   } else {
     RuntimeError("shoud have condition");
   }
@@ -991,9 +990,7 @@ antlrcpp::Any SysYAstVisitor::visitAdd2(SysYParser::Add2Context *ctx) {
   char opcode = ctx->children[1]->getText()[0];
   if (value_mode == ValueMode::Const) {
     int32_t compile_value = 0;
-    std::cout << "here0" << std::endl;
     int32_t lp = ctx->addExp()->accept(this).as<int32_t>();
-    std::cout << "here1" << std::endl;
     int32_t rp = ctx->mulExp()->accept(this).as<int32_t>();
     switch (opcode) {
     case '+':
@@ -1084,18 +1081,20 @@ antlrcpp::Any SysYAstVisitor::visitLAnd2(SysYParser::LAnd2Context *ctx) {
   auto cur_func = ftable.get_func(cur_func_name);
   auto lhs = ctx->lAndExp()->accept(this);
   auto eq_cond_bb = cur_func->alloc_bb();
+  auto false_branch_bb = false_bb_stack.back();
   cur_bb->push_ir_instr(
-      new BranchIR(lhs, eq_cond_bb->label, cur_false_bb->label));
+      new BranchIR(lhs, eq_cond_bb->label, false_branch_bb->label));
   eq_cond_bb->push_prev(cur_bb->label);
-  cur_false_bb->push_prev(cur_bb->label);
+  false_branch_bb->push_prev(cur_bb->label);
   cond_bb_stack.push_back(cur_bb);
   cur_bb = eq_cond_bb;
   auto rhs = ctx->eqExp()->accept(this);
   auto true_branch_bb = true_bb_stack.back();
+  false_branch_bb = false_bb_stack.back();
   cur_bb->push_ir_instr(
-      new BranchIR(rhs, true_branch_bb->label, cur_false_bb->label));
+      new BranchIR(rhs, true_branch_bb->label, false_branch_bb->label));
   true_branch_bb->push_prev(cur_bb->label);
-  cur_false_bb->push_prev(cur_bb->label);
+  false_branch_bb->push_prev(cur_bb->label);
   cur_bb = cond_bb_stack.back();
   cond_bb_stack.pop_back();
   spdlog::debug("leaveLAnd2");
@@ -1121,23 +1120,20 @@ antlrcpp::Any SysYAstVisitor::visitLOr2(SysYParser::LOr2Context *ctx) {
   auto cur_func = ftable.get_func(cur_func_name);
   auto lhs = ctx->lOrExp()->accept(this);
   auto and_cond_bb = cur_func->alloc_bb();
-  spdlog::debug("Here 00");
   auto true_branch_bb = true_bb_stack.back();
-  spdlog::debug("Here 01");
   cur_bb->push_ir_instr(
       new BranchIR(lhs, true_branch_bb->label, and_cond_bb->label));
   true_branch_bb->push_prev(cur_bb->label);
-  spdlog::debug("Here 02");
   and_cond_bb->push_prev(cur_bb->label);
-  spdlog::debug("Here 03");
   cond_bb_stack.push_back(cur_bb);
   cur_bb = and_cond_bb;
   auto rhs = ctx->lAndExp()->accept(this);
   true_branch_bb = true_bb_stack.back();
+  auto false_branch_bb = false_bb_stack.back();
   cur_bb->push_ir_instr(
-      new BranchIR(rhs, true_branch_bb->label, cur_false_bb->label));
+      new BranchIR(rhs, true_branch_bb->label, false_branch_bb->label));
   true_branch_bb->push_prev(cur_bb->label);
-  cur_false_bb->push_prev(cur_bb->label);
+  false_branch_bb->push_prev(cur_bb->label);
   cur_bb = cond_bb_stack.back();
   cond_bb_stack.pop_back();
   spdlog::debug("leaveLOr2");
