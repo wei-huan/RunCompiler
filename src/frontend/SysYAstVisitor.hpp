@@ -25,11 +25,10 @@ public:
   optional<shared_ptr<BasicBlock>> ret_bb_opt = std::nullopt;
   string cur_func_name = "_init";
   shared_ptr<BasicBlock> cur_bb = nullptr;
-  vector<shared_ptr<BasicBlock>> cond_first_bb_stack;
   vector<shared_ptr<BasicBlock>> true_bb_stack;
   vector<shared_ptr<BasicBlock>> false_bb_stack;
-  shared_ptr<BasicBlock> cur_while_cond_bb = nullptr;
-  shared_ptr<BasicBlock> cur_while_false_bb = nullptr;
+  shared_ptr<BasicBlock> cur_while_false_bb = nullptr; // for break jump out of while loop
+  vector<shared_ptr<BasicBlock>> cond_first_bb_stack; // for continue jump to while cond bb
 
   SysYAstVisitor();
   shared_ptr<FunctionEntry> get_func(string name);

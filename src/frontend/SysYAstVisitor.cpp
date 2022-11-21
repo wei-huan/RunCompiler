@@ -515,10 +515,7 @@ SysYAstVisitor::visitBlockStmt(SysYParser::BlockStmtContext *ctx) {
 antlrcpp::Any SysYAstVisitor::visitIfStmt1(SysYParser::IfStmt1Context *ctx) {
   spdlog::debug("visitIfStmt1");
   auto cur_func = ftable.get_func(cur_func_name);
-  // cond_bb_stack.push_back(cur_bb);
   ctx->cond()->accept(this);
-  // cur_bb = cond_bb_stack.back();
-  // cond_bb_stack.pop_back();
   cur_bb = true_bb_stack.back();
   ctx->stmt()->accept(this);
   true_bb_stack.pop_back();
@@ -535,10 +532,7 @@ antlrcpp::Any SysYAstVisitor::visitIfStmt1(SysYParser::IfStmt1Context *ctx) {
 antlrcpp::Any SysYAstVisitor::visitIfStmt2(SysYParser::IfStmt2Context *ctx) {
   spdlog::debug("visitIfStmt2");
   auto cur_func = ftable.get_func(cur_func_name);
-  // cond_bb_stack.push_back(cur_bb);
   ctx->cond()->accept(this);
-  // cur_bb = cond_bb_stack.back();
-  // cond_bb_stack.pop_back();
   cur_bb = true_bb_stack.back();
   ctx->stmt(0)->accept(this);
   auto true_branch_last_bb = cur_bb;
@@ -567,7 +561,6 @@ SysYAstVisitor::visitWhileStmt(SysYParser::WhileStmtContext *ctx) {
   cond_bb->push_prev(cur_bb->label);
   cur_bb = cond_bb;
   ctx->cond()->accept(this);
-  cur_while_cond_bb = cond_first_bb_stack.back();
   cur_while_false_bb = false_bb_stack.back();
   cur_bb = true_bb_stack.back();
   ctx->stmt()->accept(this);
@@ -575,7 +568,6 @@ SysYAstVisitor::visitWhileStmt(SysYParser::WhileStmtContext *ctx) {
   cur_bb->push_ir_instr(new BranchIR(cond_first_bb_stack.back()->label));
   cond_first_bb_stack.back()->push_prev(cur_bb->label);
   cond_first_bb_stack.pop_back();
-  cur_while_cond_bb = nullptr;
   cur_while_false_bb = nullptr;
   true_bb_stack.pop_back();
   cur_bb = false_bb_stack.back();
@@ -602,10 +594,10 @@ antlrcpp::Any
 SysYAstVisitor::visitContinueStmt(SysYParser::ContinueStmtContext *ctx) {
   spdlog::debug("visitContinueStmt");
   auto res = visitChildren(ctx);
-  if (!cur_while_cond_bb) {
+  if (cond_first_bb_stack.empty()) {
     throw InvalidContinue();
   }
-  cur_bb->push_ir_instr(new BranchIR(cur_while_cond_bb->label));
+  cur_bb->push_ir_instr(new BranchIR(cond_first_bb_stack.back()->label));
   auto cur_func = ftable.get_func(cur_func_name);
   cur_bb = cur_func->alloc_bb(); // unreachable block, drop in next pass
   spdlog::debug("leaveContinueStmt");
