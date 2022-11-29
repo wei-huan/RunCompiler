@@ -21,14 +21,14 @@ public:
   VariableTable *cur_vtable = &global_vtable;
   Type cur_type = Type::VOID; // cur identifier or function type in declaration
   Type cur_num_type = Type::I32; // I32 or Float
-  optional<SSALeftValue> ret_value = std::nullopt;
+  optional<SSALeftValue> ret_value_opt = std::nullopt;
   optional<shared_ptr<BasicBlock>> ret_bb_opt = std::nullopt;
   string cur_func_name = "_init";
   shared_ptr<BasicBlock> cur_bb = nullptr;
   vector<shared_ptr<BasicBlock>> true_bb_stack;
   vector<shared_ptr<BasicBlock>> false_bb_stack;
-  shared_ptr<BasicBlock> cur_while_false_bb = nullptr; // for break jump out of while loop
-  vector<shared_ptr<BasicBlock>> cond_first_bb_stack; // for continue jump to while cond bb
+  vector<shared_ptr<BasicBlock>> cond_first_bb_stack;   // for continue jump to while cond bb
+  shared_ptr<BasicBlock> cur_while_false_bb = nullptr;  // for break jump out of while loop
 
   SysYAstVisitor();
   shared_ptr<FunctionEntry> get_func(string name);

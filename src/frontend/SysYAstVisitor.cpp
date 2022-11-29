@@ -1,4 +1,5 @@
 #include "SysYAstVisitor.hpp"
+#include "middle/IR.hpp"
 
 #include <iostream>
 #include <memory>
@@ -367,6 +368,7 @@ SysYAstVisitor::visitListInitval(SysYParser::ListInitvalContext *ctx) {
   return nullptr;
 }
 
+//
 // TODO: deal with some case that function return nothing but need a return
 // value
 antlrcpp::Any SysYAstVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
@@ -406,7 +408,7 @@ antlrcpp::Any SysYAstVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
   if (return_type.get_type() != Type::VOID) {
     auto ret_id = func_entry->alloc_ssa();
     SSALeftValue lvalue = SSALeftValue(ret_id, return_type);
-    ret_value = lvalue;
+    ret_value_opt = lvalue;
     cur_bb->push_ir_instr(new AllocaIR(lvalue));
     cur_bb->push_ir_instr(
         new StoreValueIR(lvalue, SSARightValue(return_type, 0)));
@@ -420,14 +422,14 @@ antlrcpp::Any SysYAstVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
     if (return_type.get_type() != Type::VOID) {
       auto ret_rvalue =
           SSARightValue(func_entry->alloc_ssa(), return_type.get_type());
-      ret_bb->push_ir_instr(new LoadIR(ret_rvalue, ret_value.value()));
+      ret_bb->push_ir_instr(new LoadIR(ret_rvalue, ret_value_opt.value()));
       ret_bb->push_ir_instr(new ReturnIR(ret_rvalue));
     } else {
       ret_bb->push_ir_instr(new ReturnIR(std::nullopt));
     }
   }
 
-  ret_value = std::nullopt;
+  ret_value_opt = std::nullopt;
   ret_bb_opt = std::nullopt;
   cur_func_name = "_init";
   cur_vtable = cur_vtable->ptable;
@@ -612,12 +614,47 @@ SysYAstVisitor::visitReturnStmt(SysYParser::ReturnStmtContext *ctx) {
     if (cur_func->return_type.type == Type::VOID) {
       throw VoidFuncReturnValueUsed();
     } else {
-      auto rvalue = ctx->exp()->accept(this).as<SSARightValue>();
-      cur_bb->push_ir_instr(new ReturnIR(rvalue));
+      if (depth == 0) {
+        throw RuntimeError("return statement must be in a function");
+      } else if (depth == 1) {
+        auto rvalue = ctx->exp()->accept(this).as<SSARightValue>();
+        if (ret_bb_opt == std::nullopt) {
+          // single-return, just return in current bb
+          cur_bb->push_ir_instr(new ReturnIR(rvalue));
+        } else {
+          // multi-return, need a unified return bb
+          cur_bb->push_ir_instr(
+              new StoreValueIR(ret_value_opt.value(), rvalue));
+          cur_bb->push_ir_instr(new BranchIR(ret_bb_opt.value()->label));
+        }
+      } else if (depth >= 2) {
+        // in a scope, store return value and jump to return basic block
+        if (ret_bb_opt == std::nullopt) {
+          ret_bb_opt = cur_func->alloc_bb();
+        }
+        auto rvalue = ctx->exp()->accept(this).as<SSARightValue>();
+        cur_bb->push_ir_instr(new StoreValueIR(ret_value_opt.value(), rvalue));
+        cur_bb->push_ir_instr(new BranchIR(ret_bb_opt.value()->label));
+      }
     }
   } else {
     if (cur_func->return_type.type == Type::VOID) {
-      cur_bb->push_ir_instr(new ReturnIR(std::nullopt));
+      if (depth == 0) {
+        throw RuntimeError("return statement must be in a function");
+      } else if (depth == 1) {
+        if (ret_bb_opt == std::nullopt) {
+          // single-return, just return in current bb
+          cur_bb->push_ir_instr(new ReturnIR(std::nullopt));
+        } else {
+          // multi-return, need a unified return bb
+          cur_bb->push_ir_instr(new BranchIR(ret_bb_opt.value()->label));
+        }
+      } else if (depth >= 2) {
+        if (ret_bb_opt == std::nullopt) {
+          ret_bb_opt = cur_func->alloc_bb();
+        }
+        cur_bb->push_ir_instr(new BranchIR(ret_bb_opt.value()->label));
+      }
     } else {
       throw RuntimeError("return value not found in a non-void function");
     }
