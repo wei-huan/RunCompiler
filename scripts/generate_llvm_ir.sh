@@ -1,5 +1,3 @@
-# ./build/RunCompiler test/functional/30_continue.sy info
-
 #!/bin/bash
 set -e
 
