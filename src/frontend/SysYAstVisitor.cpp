@@ -580,9 +580,13 @@ SysYAstVisitor::visitWhileStmt(SysYParser::WhileStmtContext *ctx) {
   cur_while_false_bb = false_bb_stack.back();
   cur_bb = true_bb_stack.back();
   ctx->stmt()->accept(this);
-  // last while true basic block to cond basic block
-  cur_bb->push_ir_instr(new BranchIR(cond_first_bb_stack.back()->label));
-  cond_first_bb_stack.back()->push_prev(cur_bb->label);
+  if (!cur_bb->is_have_exit()) {
+    // while last true basic block to cond basic block
+    cur_bb->push_ir_instr(new BranchIR(cond_first_bb_stack.back()->label));
+    cond_first_bb_stack.back()->push_prev(cur_bb->label);
+  } else {
+    // while last true basic block may return early
+  }
   cond_first_bb_stack.pop_back();
   cur_while_false_bb = nullptr;
   true_bb_stack.pop_back();
@@ -640,6 +644,7 @@ SysYAstVisitor::visitReturnStmt(SysYParser::ReturnStmtContext *ctx) {
           cur_bb->push_ir_instr(
               new StoreValueIR(ret_value_opt.value(), rvalue));
           cur_bb->push_ir_instr(new BranchIR(ret_bb_opt.value()->label));
+          ret_bb_opt.value()->push_prev(cur_bb->label);
         }
       } else if (depth >= 2) {
         // in a scope, store return value and jump to return basic block
@@ -649,6 +654,7 @@ SysYAstVisitor::visitReturnStmt(SysYParser::ReturnStmtContext *ctx) {
         auto rvalue = ctx->exp()->accept(this).as<SSARightValue>();
         cur_bb->push_ir_instr(new StoreValueIR(ret_value_opt.value(), rvalue));
         cur_bb->push_ir_instr(new BranchIR(ret_bb_opt.value()->label));
+        ret_bb_opt.value()->push_prev(cur_bb->label);
       }
     }
   } else {
@@ -662,12 +668,14 @@ SysYAstVisitor::visitReturnStmt(SysYParser::ReturnStmtContext *ctx) {
         } else {
           // multi-return, need a unified return bb
           cur_bb->push_ir_instr(new BranchIR(ret_bb_opt.value()->label));
+          ret_bb_opt.value()->push_prev(cur_bb->label);
         }
       } else if (depth >= 2) {
         if (ret_bb_opt == std::nullopt) {
           ret_bb_opt = cur_func->alloc_bb();
         }
         cur_bb->push_ir_instr(new BranchIR(ret_bb_opt.value()->label));
+        ret_bb_opt.value()->push_prev(cur_bb->label);
       }
     } else {
       throw RuntimeError("return value not found in a non-void function");
