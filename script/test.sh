@@ -2,7 +2,7 @@
 
 set -e
 
-if [ $# -gt 1 ]
+if [ $# -ge 1 ]
 then
 	file=$1
 	log_level=$2

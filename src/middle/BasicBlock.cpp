@@ -4,14 +4,14 @@
 
 void BasicBlock::push_ir_instr(IRInstr *x) {
   // 检查基本块是否已经有出口了
-  // if (x->oper == IRInstr::BRANCH || x->oper == IRInstr::RET) {
-  //   if (have_exit == true) {
-  //     throw RuntimeError("basic block " + std::to_string(label) +
-  //                        " already have exit");
-  //   } else {
-  //     have_exit = true;
-  //   }
-  // }
+  if (x->oper == IRInstr::BRANCH || x->oper == IRInstr::RET) {
+    if (have_exit == true) {
+      throw RuntimeError("basic block " + std::to_string(label) +
+                         " already have exit");
+    } else {
+      have_exit = true;
+    }
+  }
   instrs.emplace_back(x);
 }
 

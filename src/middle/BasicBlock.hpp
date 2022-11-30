@@ -26,4 +26,5 @@ struct BasicBlock {
   void push_ir_instr(IRInstr *x);
   void push_prev(int prev_label);
   void print_ir_code();
+  bool is_have_exit() { return have_exit; }
 };

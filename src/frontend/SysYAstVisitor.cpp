@@ -524,8 +524,12 @@ antlrcpp::Any SysYAstVisitor::visitIfStmt1(SysYParser::IfStmt1Context *ctx) {
   auto false_branch_bb = false_bb_stack.back();
   false_bb_stack.pop_back();
   // true branch last basic block -> false basic block
-  cur_bb->push_ir_instr(new BranchIR(false_branch_bb->label));
-  false_branch_bb->push_prev(cur_bb->label);
+  if (!cur_bb->is_have_exit()) {
+    cur_bb->push_ir_instr(new BranchIR(false_branch_bb->label));
+    false_branch_bb->push_prev(cur_bb->label);
+  } else {
+    // may have return in true branch
+  }
   cur_bb = false_branch_bb;
   spdlog::debug("leaveIfStmt1");
   return nullptr;
@@ -545,10 +549,20 @@ antlrcpp::Any SysYAstVisitor::visitIfStmt2(SysYParser::IfStmt2Context *ctx) {
   true_bb_stack.pop_back();
   false_bb_stack.pop_back();
   cur_bb = cur_func->alloc_bb();
-  true_branch_last_bb->push_ir_instr(new BranchIR(cur_bb->label));
-  cur_bb->push_prev(true_branch_last_bb->label);
-  false_branch_last_bb->push_ir_instr(new BranchIR(cur_bb->label));
-  cur_bb->push_prev(false_branch_last_bb->label);
+  // true branch last basic block -> after if basic block
+  if (!true_branch_last_bb->is_have_exit()) {
+    true_branch_last_bb->push_ir_instr(new BranchIR(cur_bb->label));
+    cur_bb->push_prev(true_branch_last_bb->label);
+  } else {
+    // may have return in true branch
+  }
+  // false branch last basic block -> after if basic block
+  if (!false_branch_last_bb->is_have_exit()) {
+    false_branch_last_bb->push_ir_instr(new BranchIR(cur_bb->label));
+    cur_bb->push_prev(false_branch_last_bb->label);
+  } else {
+    // may have return in true branch
+  }
   spdlog::debug("leaveIfStmt2");
   return nullptr;
 }
