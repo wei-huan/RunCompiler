@@ -39,7 +39,7 @@ void SysYAstVisitor::register_lib_func() {
   ftable.register_lib_func("putfarray", Type::VOID);
   // todo: arg list
   ftable.register_lib_func("putf", Type::VOID);
-
+  
   // timer
   ftable.register_lib_func("starttime", Type::VOID);
   ftable.register_lib_func("stoptime", Type::VOID);
