@@ -98,5 +98,3 @@ int main(int argc, char *argv[]) {
   /* 代码生成 */
   return 0;
 }
-
-int foo() {}

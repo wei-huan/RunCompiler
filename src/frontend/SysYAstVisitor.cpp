@@ -11,10 +11,38 @@ using std::shared_ptr;
 using std::string;
 using std::vector;
 
-SysYAstVisitor::SysYAstVisitor() : global_vtable(nullptr) {}
-
 shared_ptr<FunctionEntry> SysYAstVisitor::get_func(string name) {
   return ftable.get_func(name);
+}
+
+// todo: add arg list
+void SysYAstVisitor::register_lib_func() {
+  // get from i/o
+  ftable.register_lib_func("getint", Type::I32);
+  ftable.register_lib_func("getch", Type::I32);
+  ftable.register_lib_func("getfloat", Type::FLOAT);
+  // todo: arg list
+  ftable.register_lib_func("getarray", Type::I32);
+  // todo: arg list
+  ftable.register_lib_func("getfarray", Type::I32);
+
+  // put to i/o
+  // todo: arg list
+  ftable.register_lib_func("putint", Type::VOID);
+  // todo: arg list
+  ftable.register_lib_func("putch", Type::VOID);
+  // todo: arg list
+  ftable.register_lib_func("putfloat", Type::VOID);
+  // todo: arg list
+  ftable.register_lib_func("putarray", Type::VOID);
+  // todo: arg list
+  ftable.register_lib_func("putfarray", Type::VOID);
+  // todo: arg list
+  ftable.register_lib_func("putf", Type::VOID);
+
+  // timer
+  ftable.register_lib_func("starttime", Type::VOID);
+  ftable.register_lib_func("stoptime", Type::VOID);
 }
 
 antlrcpp::Any SysYAstVisitor::visitCompUnit(SysYParser::CompUnitContext *ctx) {
@@ -23,8 +51,7 @@ antlrcpp::Any SysYAstVisitor::visitCompUnit(SysYParser::CompUnitContext *ctx) {
   auto func_entry = std::make_shared<FunctionEntry>(cur_func_name, Type::VOID);
   ftable.register_func(cur_func_name, func_entry);
   cur_bb = func_entry->alloc_bb();
-  // TODO: register lib func
-  // register_lib_functions();
+  register_lib_func();
   auto res = visitChildren(ctx);
   spdlog::debug("leaveCompUnit");
   return res;
@@ -371,8 +398,9 @@ SysYAstVisitor::visitListInitval(SysYParser::ListInitvalContext *ctx) {
 //
 // TODO: deal with some case that function return nothing but need a return
 // value
+//
 antlrcpp::Any SysYAstVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
-  spdlog::debug("visitFuncDef ");
+  spdlog::debug("visitFuncDef");
   string func_name(ctx->Identifier()->getText());
   if (ftable.is_exist(func_name) || global_vtable.is_exist(func_name)) {
     throw DuplicateGlobalName(func_name);

@@ -6,8 +6,7 @@
 #include "middle/IR.hpp"
 #include "middle/SymbolTable.hpp"
 #include "spdlog/spdlog.h"
-
-#include <stack>
+#include <cstddef>
 
 using std::vector;
 
@@ -17,7 +16,7 @@ class SysYAstVisitor : public SysYBaseVisitor {
 public:
   int depth = 0; // Block Depth
   FunctionTable ftable;
-  VariableTable global_vtable;
+  VariableTable global_vtable = nullptr;
   VariableTable *cur_vtable = &global_vtable;
   Type cur_type = Type::VOID; // cur identifier or function type in declaration
   Type cur_num_type = Type::I32; // I32 or Float
@@ -27,12 +26,13 @@ public:
   shared_ptr<BasicBlock> cur_bb = nullptr;
   vector<shared_ptr<BasicBlock>> true_bb_stack;
   vector<shared_ptr<BasicBlock>> false_bb_stack;
-  vector<shared_ptr<BasicBlock>> cond_first_bb_stack;   // for continue jump to while cond bb
-  shared_ptr<BasicBlock> cur_while_false_bb = nullptr;  // for break jump out of while loop
-
-  SysYAstVisitor();
+  // for continue jump to while cond bb
+  vector<shared_ptr<BasicBlock>> cond_first_bb_stack;
+  // for break jump out of while loop
+  shared_ptr<BasicBlock> cur_while_false_bb = nullptr;
   shared_ptr<FunctionEntry> get_func(string name);
 
+  void register_lib_func();
   vector<int32_t> parse_const_init(SysYParser::ConstInitValContext *root,
                                    const vector<int32_t> &shape);
 
