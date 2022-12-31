@@ -15,7 +15,6 @@ shared_ptr<FunctionEntry> SysYAstVisitor::get_func(string name) {
   return ftable.get_func(name);
 }
 
-// todo: add arg list
 void SysYAstVisitor::register_lib_func() {
   // get from i/o
   ftable.register_lib_func("getint", Type::I32);
@@ -27,19 +26,25 @@ void SysYAstVisitor::register_lib_func() {
   ftable.register_lib_func("getfarray", Type::I32);
 
   // put to i/o
-  // todo: arg list
-  ftable.register_lib_func("putint", Type::VOID);
-  // todo: arg list
-  ftable.register_lib_func("putch", Type::VOID);
-  // todo: arg list
-  ftable.register_lib_func("putfloat", Type::VOID);
+  auto putint = ftable.register_lib_func("putint", Type::VOID);
+  vector<Type::TYPE> putint_arg_list(1, Type::I32);
+  putint->set_lib_func_arg_list(putint_arg_list);
+
+  auto putch = ftable.register_lib_func("putch", Type::VOID);
+  vector<Type::TYPE> putch_arg_list(1, Type::I32);
+  putch->set_lib_func_arg_list(putch_arg_list);
+
+  auto putfloat = ftable.register_lib_func("putfloat", Type::VOID);
+  vector<Type::TYPE> putfloat_arg_list(1, Type::FLOAT);
+  putfloat->set_lib_func_arg_list(putfloat_arg_list);
+
   // todo: arg list
   ftable.register_lib_func("putarray", Type::VOID);
   // todo: arg list
   ftable.register_lib_func("putfarray", Type::VOID);
   // todo: arg list
   ftable.register_lib_func("putf", Type::VOID);
-  
+
   // timer
   ftable.register_lib_func("starttime", Type::VOID);
   ftable.register_lib_func("stoptime", Type::VOID);
@@ -155,6 +160,7 @@ antlrcpp::Any SysYAstVisitor::visitConstDef(SysYParser::ConstDefContext *ctx) {
       shape.emplace_back(dim);
     }
   }
+  // may be an array
   auto init_values = parse_const_init(ctx->constInitVal(), shape);
   vector<SSARightValue> ssa_init_values;
   for (auto init_value : init_values) {
@@ -170,9 +176,8 @@ antlrcpp::Any SysYAstVisitor::visitConstDef(SysYParser::ConstDefContext *ctx) {
   // 在函数体里就创建 Alloca IR 和 StoreValue IR
   if (cur_func_name != "_init") {
     if (entry.get_dimen_list().empty()) {
-      int right_id = cur_func->alloc_ssa();
       cur_bb->push_ir_instr(new AllocaIR(lvalue));
-      SSARightValue rvalue(right_id, cur_type, init_values.back());
+      SSARightValue rvalue(cur_type, init_values.back());
       cur_bb->push_ir_instr(new StoreValueIR(lvalue, rvalue));
     } else {
       // cur_bb->push_ir_instr(new AllocaArrayIR(id, cur_type));
@@ -396,8 +401,7 @@ SysYAstVisitor::visitListInitval(SysYParser::ListInitvalContext *ctx) {
 }
 
 //
-// TODO: deal with some case that function return nothing but need a return
-// value
+// TODO: deal with some case that function return nothing but need a return value
 //
 antlrcpp::Any SysYAstVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
   spdlog::debug("visitFuncDef");
@@ -405,7 +409,7 @@ antlrcpp::Any SysYAstVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
   if (ftable.is_exist(func_name) || global_vtable.is_exist(func_name)) {
     throw DuplicateGlobalName(func_name);
   }
-  spdlog::debug("Function: " + func_name);
+  spdlog::debug("Function Name: " + func_name);
   Type return_type(ctx->funcType()->getText());
   auto func_entry = make_shared<FunctionEntry>(func_name, return_type);
   ftable.register_func(func_name, func_entry);
@@ -892,6 +896,7 @@ antlrcpp::Any SysYAstVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
     vector<SSARightValue> args;
     if (ctx->funcRParams()) {
       args = ctx->funcRParams()->accept(this).as<vector<SSARightValue>>();
+      // todo: verify arg with func arg list
     }
     if (callee_entry->return_type.type != Type::VOID) {
       int ssa_id = caller_entry->alloc_ssa();
@@ -900,7 +905,8 @@ antlrcpp::Any SysYAstVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
       spdlog::debug("leaveUnary2_1");
       return ret_rvalue;
     } else {
-      cur_bb->push_ir_instr(new CallFuncIR(func_name, std::nullopt, args));
+      SSARightValue fake_ret_rvalue(0, Type::VOID);
+      cur_bb->push_ir_instr(new CallFuncIR(func_name, fake_ret_rvalue, args));
       spdlog::debug("leaveUnary2_2");
       return nullptr;
     }
@@ -969,7 +975,7 @@ antlrcpp::Any SysYAstVisitor::visitUnary3(SysYParser::Unary3Context *ctx) {
         return ssa;
       }
     } else {
-      RuntimeError("Invalid opcode in UnaryExp");
+      throw RuntimeError("Invalid opcode in UnaryExp");
       return nullptr;
     }
   }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "common/errors.hpp"
 #include <string>
 
 using std::string;
@@ -18,7 +19,7 @@ struct Type {
         } else if (_type == "void") {
             type = VOID;
         } else {
-            throw std::runtime_error("Invalid Variable Type");
+            throw RuntimeError("Invalid Variable Type");
         }
     }
     void set_type(TYPE _type) {
@@ -32,7 +33,7 @@ struct Type {
         } else if (_type == "void") {
             type = VOID;
         } else {
-            throw std::runtime_error("Invalid Variable Type");
+            throw RuntimeError("Invalid Variable Type");
         }
     }
     TYPE get_type() {

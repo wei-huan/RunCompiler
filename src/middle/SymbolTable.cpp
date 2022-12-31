@@ -52,6 +52,20 @@ shared_ptr<BasicBlock> FunctionEntry::alloc_bb() {
   return basic_blocks.back();
 }
 
+void FunctionEntry::set_lib_func_arg_list(vector<Type::TYPE> type_list) {
+  vector<pair<string, VariableEntry>> list;
+  for (auto type : type_list) {
+    if (type == Type::VOID) {
+      throw RuntimeError("lib function " + func_name +
+                         " cannot have void argument.");
+    }
+    auto id = alloc_ssa();
+    auto arg_entry = VariableEntry(SSALeftValue(id, type));
+    list.push_back(std::make_pair("arg_" + std::to_string(id), arg_entry));
+  }
+  arg_list = list;
+}
+
 void FunctionEntry::visit_basic_blocks() {
   for (auto bb : basic_blocks) {
     std::cout << bb->label << ":";
@@ -89,6 +103,13 @@ void FunctionEntry::gen_code() {
   std::cout << func_def << std::endl;
   visit_basic_blocks();
   std::cout << "}" << std::endl;
+}
+
+shared_ptr<FunctionEntry> FunctionTable::register_lib_func(string name,
+                                                           Type return_type) {
+  auto entry = std::make_shared<FunctionEntry>(name, return_type, true);
+  ftable.insert({name, entry});
+  return entry;
 }
 
 void FunctionTable::traverse() {
