@@ -7,8 +7,9 @@ if [ $# -gt 0 ]; then
 	if test -d $pathorfile; then
 		path=$pathorfile # is path
 		for file in $path/*.sy; do
-			echo "cp $file ${file%%.sy}.c"
-			cp $file ${file%%.sy}.c
+			echo "$file -> ${file%%.sy}.c"
+			echo "#include \"sylib.h\"\n" > ${file%%.sy}.c
+			cat $file >> ${file%%.sy}.c
 		done
 	else
 		file=$pathorfile # is file

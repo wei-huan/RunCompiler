@@ -2,7 +2,7 @@
 set -e
 
 if (($# >= 1)); then
-	pathorfile = $1
+	pathorfile=$1
 	if test -d $pathorfile; then
 		path=$pathorfile # is path
 		for file in $path/*.c; do
