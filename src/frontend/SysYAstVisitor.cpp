@@ -401,7 +401,8 @@ SysYAstVisitor::visitListInitval(SysYParser::ListInitvalContext *ctx) {
 }
 
 //
-// TODO: deal with some case that function return nothing but need a return value
+// TODO: deal with some case that function return nothing but need a return
+// value
 //
 antlrcpp::Any SysYAstVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
   spdlog::debug("visitFuncDef");
@@ -1187,6 +1188,7 @@ antlrcpp::Any SysYAstVisitor::visitLAnd1(SysYParser::LAnd1Context *ctx) {
 antlrcpp::Any SysYAstVisitor::visitLOr1(SysYParser::LOr1Context *ctx) {
   spdlog::debug("visitLOr1");
   auto res = ctx->lAndExp()->accept(this);
+  // TODO: check basic block last ir whether is load
   spdlog::debug("leaveLOr1");
   return res;
 }

@@ -341,8 +341,13 @@ string GEPIR::gen_code() const {
   code += " ";
   code += array_shape_string(s1.dimen_list, s1.type); // shape
   code += ", ptr ";                                   // ptr
-  code += "%";                                        // local symbol
-  code += std::to_string(s1.id);                      // name
+  if (s1.is_global) {
+    code += "@";
+    code += s1.name;
+  } else {
+    code += "%";
+    code += std::to_string(s1.id);
+  }
   code += ", ";
   code += "i32 ";
   if (index0.id) {
