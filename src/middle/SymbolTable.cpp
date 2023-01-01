@@ -77,6 +77,7 @@ void FunctionEntry::visit_basic_blocks() {
     }
     std::cout << std::endl;
     bb->print_ir_code();
+    std::cout << std::endl;
   }
 }
 
