@@ -6,5 +6,5 @@ if (($# >= 2)); then
 	suffix=$2
 	rm -f $dir/*$suffix 
 else
-	echo "use it like: sh scripts/clean_dir_by_suffix.sh ./test/functional .sy.out"
+	echo "use it like: sh scripts/clean_dir_by_suffix.sh test/functional .sy.out"
 fi

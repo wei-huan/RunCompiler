@@ -10,13 +10,14 @@ if (($# >= 1)); then
 	if test -d $source_path; then
 		source_dir=$source_path # is dir
 		for syfile in $source_dir/*.sy; do
-			echo "$syfile"
-			./build/RunCompiler $syfile $output_directory $log_level > ${syfile%%.sy}.sy.ll
+			# echo "$syfile"
+			syfile_basename=$(basename $syfile)
+			./build/RunCompiler $syfile $output_directory/$syfile_basename $log_level
 		done
 	else
-		file=$source_path # is file
-		file_basename=$(basename $file)
-		./build/RunCompiler $file $output_directory/${file_basename%%.sy}.sy.ll $log_level
+		syfile=$source_path # is file
+		syfile_basename=$(basename $syfile)
+		./build/RunCompiler $syfile $output_directory/${syfile_basename%%.sy}.sy.ll $log_level
 	fi
 else
 	echo "use it like $: sh ./scripts/generate_my_ir.sh test/functional/30_continue.sy output/functional info \
