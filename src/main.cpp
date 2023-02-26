@@ -113,7 +113,7 @@ int main(int argc, char *argv[]) {
     /* print global variable table */
     // astVisitor.global_vtable.traverse();
     /* llvm 中间代码生成 */
-    spdlog::info("生成 LLVM IR 到 " + args[1]);
+    spdlog::info("生成 " + args[0] + " 的LLVM IR 到 " + args[1]);
     // redirect stdout to output file
     auto fp = std::freopen(args[1].c_str(), "w+", stdout);
     astVisitor.ftable.gen_code();

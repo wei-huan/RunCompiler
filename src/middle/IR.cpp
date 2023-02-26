@@ -52,24 +52,24 @@ string GlobalDeclIR::gen_code() const {
   code += var.name; // name
   code += " = ";    // assign
   // attribute
-  if (var.is_const) {
+  if (var.is_const()) {
     code += "constant ";
   } else {
     code += "global ";
   }
   auto var_copy = var.init_value;
   if (var_copy) {
-    code += array_init_value_string(1, var.dimen_list, var_copy.value());
+    code += array_init_value_string(1, var.shape(), var_copy.value());
   } else {
-    code += array_shape_string(var.dimen_list, var.type);
+    code += array_shape_string(var.shape(), var.type);
     code += " ";
-    if (var.dimen_list.size()) {
+    if (var.shape().size()) {
       code += "zeroinitializer";
     } else {
       code += "0";
     }
   }
-  if (var.dimen_list.size()) {
+  if (var.shape().size()) {
     code += ", align 16"; // align
   } else {
     code += ", align 4"; // align
@@ -84,8 +84,8 @@ string AllocaIR::gen_code() const {
   code += " = ";                  // assign
   code += get_name(oper);         // opcode
   code += " ";
-  code += array_shape_string(var.dimen_list, var.type);
-  if (var.dimen_list.size()) {
+  code += array_shape_string(var.shape(), var.type);
+  if (var.shape().size()) {
     code += ", align 16"; // align
   } else {
     code += ", align 4"; // align
@@ -102,7 +102,7 @@ string LoadIR::gen_code() const {
   code += " ";
   code += d1.type.get_name(); // type
   code += ", ptr ";           // ptr aka left value
-  if (s1.is_global) {
+  if (s1.is_global()) {
     code += "@";
     code += s1.name;
   } else {
@@ -143,7 +143,7 @@ string StoreValueIR::gen_code() const {
     code += std::to_string(rvalue.id); // value
   }
   code += ", ptr ";
-  if (lvalue.is_global) {
+  if (lvalue.is_global()) {
     code += "@";
     code += lvalue.name;
   } else {
@@ -339,9 +339,9 @@ string GEPIR::gen_code() const {
   code += " = ";                 // assign
   code += get_name(oper);        // opcode
   code += " ";
-  code += array_shape_string(s1.dimen_list, s1.type); // shape
-  code += ", ptr ";                                   // ptr
-  if (s1.is_global) {
+  code += array_shape_string(s1.shape(), s1.type); // shape
+  code += ", ptr ";                                // ptr
+  if (s1.is_global()) {
     code += "@";
     code += s1.name;
   } else {

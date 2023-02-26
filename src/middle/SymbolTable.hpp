@@ -26,18 +26,18 @@ using std::vector;
 // 构建符号项时直接当成单一静态左值对待, 方便后面查询
 struct VariableEntry {
   SSALeftValue lvalue;
-  void set_const() { lvalue.is_const = true; }
-  bool get_const() { return lvalue.is_const; }
-  void set_arg() { lvalue.is_const = true; }
+  void set_const() { lvalue.set_const(); }
+  bool get_const() { return lvalue.is_const(); }
+  void set_arg() { lvalue.is_arg = true; }
   void set_type(Type type) { lvalue.type = type; }
   // 设置各个维度
-  void add_dimen(int32_t value) { lvalue.dimen_list.emplace_back(value); }
+  void add_dimen(int32_t value) { lvalue.shape().emplace_back(value); }
   void set_init_value(vector<SSARightValue> init_value) {
     lvalue.value = init_value;
   }
   // 获取变量维数
-  vector<int32_t> get_dimen_list() { return lvalue.dimen_list; }
-  int get_dimens() { return lvalue.dimen_list.size(); }
+  vector<int32_t> get_dimen_list() { return lvalue.shape(); }
+  int get_dimens() { return lvalue.shape().size(); }
   VariableEntry(SSALeftValue lvalue) : lvalue(lvalue) {}
 };
 

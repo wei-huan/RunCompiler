@@ -1,6 +1,9 @@
 #include "SysYAstVisitor.hpp"
+#include "common/errors.hpp"
 #include "middle/IR.hpp"
+#include "middle/SSA.hpp"
 
+#include <cstddef>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -148,11 +151,23 @@ SysYAstVisitor::parse_const_init(SysYParser::ConstInitValContext *root,
   return ret;
 }
 
+/// already in const mode
 antlrcpp::Any SysYAstVisitor::visitConstDef(SysYParser::ConstDefContext *ctx) {
   spdlog::debug("visitConstDef");
-  string ident_name = ctx->Identifier()->getText();
-  shared_ptr<FunctionEntry> cur_func = ftable.get_func(cur_func_name);
-  int left_id = cur_func->alloc_ssa();
+
+  /* validate variable identifier name */
+  auto ident_name = ctx->Identifier()->getText();
+  if (cur_func_name == "_init") {
+    if (ftable.is_exist(ident_name) || global_vtable.is_exist(ident_name)) {
+      throw DuplicateGlobalName(ident_name);
+    }
+  } else {
+    if (ftable.is_exist(ident_name) || cur_vtable->is_exist(ident_name)) {
+      throw DuplicateLocalName(ident_name);
+    }
+  }
+
+  /* get shape */
   vector<int32_t> shape;
   if (!ctx->constExp().empty()) {
     for (auto i : ctx->constExp()) {
@@ -160,34 +175,32 @@ antlrcpp::Any SysYAstVisitor::visitConstDef(SysYParser::ConstDefContext *ctx) {
       shape.emplace_back(dim);
     }
   }
-  // may be an array
+
+  /* get initialize value */
   auto init_values = parse_const_init(ctx->constInitVal(), shape);
-  vector<SSARightValue> ssa_init_values;
-  for (auto init_value : init_values) {
-    SSARightValue rvalue(init_value);
-    ssa_init_values.emplace_back(rvalue);
-  }
-  SSALeftValue lvalue(left_id, cur_type, ident_name, shape, ssa_init_values,
-                      true);
+  vector<SSARightValue> rvalue_vec;
+  for (auto init_value : init_values)
+    rvalue_vec.emplace_back(SSARightValue(init_value));
+
+  /* create left value */
+  auto left_id = ftable.get_func(cur_func_name)->alloc_ssa();
+  SSALeftValue lvalue(left_id, cur_type, ident_name, shape, rvalue_vec, true);
+
+  /* add initialize ir instructions */
   if (cur_func_name == "_init") {
-    lvalue.is_global = true;
-  }
-  VariableEntry entry(lvalue);
-  // 在函数体里就创建 Alloca IR 和 StoreValue IR
-  if (cur_func_name != "_init") {
-    if (entry.get_dimen_list().empty()) {
-      cur_bb->push_ir_instr(new AllocaIR(lvalue));
-      SSARightValue rvalue(cur_type, init_values.back());
-      cur_bb->push_ir_instr(new StoreValueIR(lvalue, rvalue));
-    } else {
-      // cur_bb->push_ir_instr(new AllocaArrayIR(id, cur_type));
-      // TODO: Array Value Store
-    }
-  } // 在函数外里就创建 GlobalDecl IR
-  else {
+    // declare variable in global basic block
+    lvalue.set_global();
     cur_bb->push_ir_instr(new GlobalDeclIR(lvalue));
+  } else {
+    // allocate space and initialize in function
+    vector<IRInstr *> ir_vec;
+    generate_lvalue_init_ir(lvalue, rvalue_vec, &ir_vec);
+    cur_bb->push_ir_instr(new AllocaIR(lvalue));
+    cur_bb->push_ir_instrs(ir_vec);
   }
-  cur_vtable->append(ident_name, entry);
+
+  /* add variable entry to variable table */
+  cur_vtable->append(ident_name, VariableEntry(lvalue));
   spdlog::debug("leaveConstDef");
   return nullptr;
 }
@@ -204,6 +217,7 @@ antlrcpp::Any SysYAstVisitor::visitScalarConstInitVal(
 antlrcpp::Any SysYAstVisitor::visitListConstInitVal(
     SysYParser::ListConstInitValContext *ctx) {
   throw RuntimeError("ASTVisitor::visitListConstInitVal should be unreachable");
+  // TODO:
   return nullptr;
 }
 
@@ -245,7 +259,7 @@ SysYAstVisitor::visitUninitVarDef(SysYParser::UninitVarDefContext *ctx) {
   }
   SSALeftValue lvalue(left_id, cur_type, ident_name, shape);
   if (cur_func_name == "_init") {
-    lvalue.is_global = true;
+    lvalue.set_global();
   }
   VariableEntry entry(lvalue);
   // 在函数体里就创建 Alloca IR
@@ -329,11 +343,45 @@ SysYAstVisitor::parse_var_init(SysYParser::InitValContext *root,
   return result;
 }
 
+/// 生成左值赋值初始化语句
+void SysYAstVisitor::generate_lvalue_init_ir(SSALeftValue lvalue,
+                                             vector<SSARightValue> rvalue_vec,
+                                             vector<IRInstr *> *ir_vec) {
+  auto shape = lvalue.shape();
+  if (shape.empty()) {
+    if (rvalue_vec.size() == 1) {
+      ir_vec->emplace_back(new StoreValueIR(lvalue, rvalue_vec[0]));
+    } else {
+      throw RuntimeError("Init values length can't match value shape");
+    }
+  } else {
+    auto new_shape = shape;
+    new_shape.erase(new_shape.begin());
+    auto child_size = 1;
+    for (auto i : new_shape) {
+      child_size *= i;
+    }
+    for (size_t index = 0; index < shape[0]; index++) {
+      SSALeftValue new_lvalue(ftable.get_func(cur_func_name)->alloc_ssa(),
+                              lvalue.type, new_shape);
+      ir_vec->emplace_back(new GEPIR(new_lvalue, lvalue, SSARightValue(0),
+                                     SSARightValue(index)));
+      auto start = index * child_size;
+      auto end = (index + 1) * child_size;
+      vector<SSARightValue> sub_rvalue_vec(rvalue_vec.begin() + start,
+                                           rvalue_vec.begin() + end);
+      // go deeper
+      generate_lvalue_init_ir(new_lvalue, sub_rvalue_vec, ir_vec);
+    }
+  }
+}
+
 antlrcpp::Any
 SysYAstVisitor::visitInitVarDef(SysYParser::InitVarDefContext *ctx) {
   spdlog::debug("visitInitVarDef");
+
+  /* validate variable identifier name */
   string ident_name = ctx->Identifier()->getText();
-  // check wheather variable existed
   if (cur_func_name == "_init") {
     if (ftable.is_exist(ident_name) || global_vtable.is_exist(ident_name)) {
       throw DuplicateGlobalName(ident_name);
@@ -343,8 +391,8 @@ SysYAstVisitor::visitInitVarDef(SysYParser::InitVarDefContext *ctx) {
       throw DuplicateLocalName(ident_name);
     }
   }
-  shared_ptr<FunctionEntry> cur_func = ftable.get_func(cur_func_name);
-  int left_id = cur_func->alloc_ssa();
+
+  /* get shape */
   vector<int32_t> shape;
   if (!ctx->constExp().empty()) {
     value_mode = ValueMode::Const;
@@ -354,35 +402,34 @@ SysYAstVisitor::visitInitVarDef(SysYParser::InitVarDefContext *ctx) {
     }
     value_mode = ValueMode::Normal;
   }
+
+  /* get initialize value */
   if (cur_func_name == "_init") {
     value_mode = ValueMode::Const;
   }
-  SSALeftValue lvalue(left_id, cur_type, ident_name, shape);
+  vector<SSARightValue> init_vals = parse_var_init(ctx->initVal(), shape);
+
+  /* create left value */
+  auto left_id = ftable.get_func(cur_func_name)->alloc_ssa();
+  SSALeftValue lvalue(left_id, cur_type, ident_name, shape, init_vals);
+
+  /* add intialize ir instructions */
   if (cur_func_name == "_init") {
-    lvalue.is_global = true;
-  }
-  // 在函数体里就创建 Alloca IR
-  if (cur_func_name != "_init") {
-    cur_bb->push_ir_instr(
-        new AllocaIR(lvalue)); // Alloca IR don't need init value information
-  }
-  vector<SSARightValue> init_val = parse_var_init(ctx->initVal(), shape);
-  lvalue.set_init_value(init_val);
-  VariableEntry entry(lvalue);
-  // 在函数体里就创建 Alloca IR
-  if (cur_func_name != "_init") {
-    if (shape.empty()) {
-      SSARightValue rvalue = init_val.back();
-      cur_bb->push_ir_instr(new StoreValueIR(lvalue, rvalue));
-    } else {
-      // TODO: Array Value Store
-      // cur_bb->push_ir_instr(new MemCopyIR());
-    }
-  } // 在函数外里就创建 GlobalDecl IR
-  else {
+    // 在函数外里就必须是常量，并创建 GlobalDecl IR
+    lvalue.set_global();
     cur_bb->push_ir_instr(new GlobalDeclIR(lvalue));
+  } else {
+    // 在函数体里就创建 Alloca IR，并进行值初始化
+    vector<IRInstr *> ir_vec;
+    generate_lvalue_init_ir(lvalue, init_vals, &ir_vec);
+    cur_bb->push_ir_instr(new AllocaIR(lvalue));
+    cur_bb->push_ir_instrs(ir_vec);
+    // TODO: optimize array value store, if all initilize value are constant,
+    // bitcast as i8* and memcopy from const array, else.
   }
-  cur_vtable->append(ident_name, entry);
+
+  /* add variable entry to variable table */
+  cur_vtable->append(ident_name, VariableEntry(lvalue));
   value_mode = ValueMode::Normal;
   spdlog::debug("leaveInitVarDef");
   return nullptr;
@@ -559,7 +606,7 @@ antlrcpp::Any SysYAstVisitor::visitIfStmt1(SysYParser::IfStmt1Context *ctx) {
   // true branch last basic block -> false basic block
   if (!cur_bb->is_have_exit()) {
     cur_bb->push_ir_instr(new BranchIR(false_branch_bb->label));
-    false_branch_bb->push_prev(cur_bb->label);
+    false_branch_bb->add_prev_bb(cur_bb->label);
   } else {
     // may have return in true branch
   }
@@ -585,14 +632,14 @@ antlrcpp::Any SysYAstVisitor::visitIfStmt2(SysYParser::IfStmt2Context *ctx) {
   // true branch last basic block -> after if basic block
   if (!true_branch_last_bb->is_have_exit()) {
     true_branch_last_bb->push_ir_instr(new BranchIR(cur_bb->label));
-    cur_bb->push_prev(true_branch_last_bb->label);
+    cur_bb->add_prev_bb(true_branch_last_bb->label);
   } else {
     // may have return in true branch
   }
   // false branch last basic block -> after if basic block
   if (!false_branch_last_bb->is_have_exit()) {
     false_branch_last_bb->push_ir_instr(new BranchIR(cur_bb->label));
-    cur_bb->push_prev(false_branch_last_bb->label);
+    cur_bb->add_prev_bb(false_branch_last_bb->label);
   } else {
     // may have return in true branch
   }
@@ -607,7 +654,7 @@ SysYAstVisitor::visitWhileStmt(SysYParser::WhileStmtContext *ctx) {
   auto cond_bb = cur_func->alloc_bb();
   cond_first_bb_stack.push_back(cond_bb);
   cur_bb->push_ir_instr(new BranchIR(cond_bb->label));
-  cond_bb->push_prev(cur_bb->label);
+  cond_bb->add_prev_bb(cur_bb->label);
   cur_bb = cond_bb;
   ctx->cond()->accept(this);
   cur_while_false_bb = false_bb_stack.back();
@@ -616,7 +663,7 @@ SysYAstVisitor::visitWhileStmt(SysYParser::WhileStmtContext *ctx) {
   if (!cur_bb->is_have_exit()) {
     // while last true basic block to cond basic block
     cur_bb->push_ir_instr(new BranchIR(cond_first_bb_stack.back()->label));
-    cond_first_bb_stack.back()->push_prev(cur_bb->label);
+    cond_first_bb_stack.back()->add_prev_bb(cur_bb->label);
   } else {
     // while last true basic block may return early
   }
@@ -677,7 +724,7 @@ SysYAstVisitor::visitReturnStmt(SysYParser::ReturnStmtContext *ctx) {
           cur_bb->push_ir_instr(
               new StoreValueIR(ret_value_opt.value(), rvalue));
           cur_bb->push_ir_instr(new BranchIR(ret_bb_opt.value()->label));
-          ret_bb_opt.value()->push_prev(cur_bb->label);
+          ret_bb_opt.value()->add_prev_bb(cur_bb->label);
         }
       } else if (depth >= 2) {
         // in a scope, store return value and jump to return basic block
@@ -687,7 +734,7 @@ SysYAstVisitor::visitReturnStmt(SysYParser::ReturnStmtContext *ctx) {
         auto rvalue = ctx->exp()->accept(this).as<SSARightValue>();
         cur_bb->push_ir_instr(new StoreValueIR(ret_value_opt.value(), rvalue));
         cur_bb->push_ir_instr(new BranchIR(ret_bb_opt.value()->label));
-        ret_bb_opt.value()->push_prev(cur_bb->label);
+        ret_bb_opt.value()->add_prev_bb(cur_bb->label);
       }
     }
   } else {
@@ -701,14 +748,14 @@ SysYAstVisitor::visitReturnStmt(SysYParser::ReturnStmtContext *ctx) {
         } else {
           // multi-return, need a unified return bb
           cur_bb->push_ir_instr(new BranchIR(ret_bb_opt.value()->label));
-          ret_bb_opt.value()->push_prev(cur_bb->label);
+          ret_bb_opt.value()->add_prev_bb(cur_bb->label);
         }
       } else if (depth >= 2) {
         if (ret_bb_opt == std::nullopt) {
           ret_bb_opt = cur_func->alloc_bb();
         }
         cur_bb->push_ir_instr(new BranchIR(ret_bb_opt.value()->label));
-        ret_bb_opt.value()->push_prev(cur_bb->label);
+        ret_bb_opt.value()->add_prev_bb(cur_bb->label);
       }
     } else {
       throw RuntimeError("return value not found in a non-void function");
@@ -738,8 +785,8 @@ antlrcpp::Any SysYAstVisitor::visitCond(SysYParser::CondContext *ctx) {
     false_branch_bb = false_bb_stack.back();
     cur_bb->push_ir_instr(
         new BranchIR(res, true_branch_bb->label, false_branch_bb->label));
-    true_branch_bb->push_prev(cur_bb->label);
-    false_branch_bb->push_prev(cur_bb->label);
+    true_branch_bb->add_prev_bb(cur_bb->label);
+    false_branch_bb->add_prev_bb(cur_bb->label);
   } else {
     RuntimeError("shoud have condition");
   }
@@ -750,6 +797,7 @@ antlrcpp::Any SysYAstVisitor::visitCond(SysYParser::CondContext *ctx) {
 antlrcpp::Any SysYAstVisitor::visitLVal(SysYParser::LValContext *ctx) {
   spdlog::debug("visitLVal");
   auto res = ctx->Identifier()->getText();
+  // TODO: check existence of identifier
   vector<SSARightValue> indexs;
   for (auto i : ctx->exp()) {
     SSARightValue cur = i->accept(this);
@@ -772,17 +820,16 @@ antlrcpp::Any SysYAstVisitor::visitLVal(SysYParser::LValContext *ctx) {
     auto entry = cur_vtable->get_variable(res);
     if (entry) {
       auto lvalue = entry.value().lvalue;
-      int dimensions = lvalue.dimen_list.size();
+      int dimensions = lvalue.shape().size();
       auto cur_func = ftable.get_func(cur_func_name);
       // TODO: add ptr support 56_sort_test2.sy
       for (int i = 1; i <= dimensions; i++) {
-        auto ssa_id = cur_func->alloc_ssa();
-        vector<int32_t> new_shape = lvalue.dimen_list;
+        vector<int32_t> new_shape = lvalue.shape();
         new_shape.erase(new_shape.begin());
-        SSALeftValue new_lvalue(ssa_id, lvalue.type, new_shape);
-        SSARightValue index0(0);
+        SSALeftValue new_lvalue(cur_func->alloc_ssa(), lvalue.type, new_shape);
         SSARightValue index1 = indexs.front();
-        cur_bb->push_ir_instr(new GEPIR(new_lvalue, lvalue, index0, index1));
+        cur_bb->push_ir_instr(
+            new GEPIR(new_lvalue, lvalue, SSARightValue(0), index1));
         indexs.erase(indexs.begin());
         lvalue = new_lvalue;
       }
@@ -808,11 +855,10 @@ antlrcpp::Any
 SysYAstVisitor::visitPrimaryExp2(SysYParser::PrimaryExp2Context *ctx) {
   spdlog::debug("visitPrimaryExp2");
   if (value_mode != Const) {
-    shared_ptr<FunctionEntry> cur_func = ftable.get_func(cur_func_name);
+    auto cur_func = ftable.get_func(cur_func_name);
     // TODO find SSALeftValue by ctx.Identifier()
     auto s1 = ctx->lVal()->accept(this).as<SSALeftValue>();
-    int id = cur_func->alloc_ssa();
-    SSARightValue d1(id, cur_type);
+    SSARightValue d1(cur_func->alloc_ssa(), cur_type);
     cur_bb->push_ir_instr(new LoadIR(d1, s1));
     spdlog::debug("leavePrimaryExp2_0");
     return d1;
@@ -1169,8 +1215,8 @@ antlrcpp::Any SysYAstVisitor::visitLAnd2(SysYParser::LAnd2Context *ctx) {
   true_bb_stack.pop_back();
   cur_bb->push_ir_instr(
       new BranchIR(lhs, true_branch_bb->label, false_branch_bb->label));
-  true_branch_bb->push_prev(cur_bb->label);
-  false_branch_bb->push_prev(cur_bb->label);
+  true_branch_bb->add_prev_bb(cur_bb->label);
+  false_branch_bb->add_prev_bb(cur_bb->label);
   // basic block true_branch_bb for (&& rhs)
   cur_bb = true_branch_bb;
   auto rhs = ctx->eqExp()->accept(this);
@@ -1204,8 +1250,8 @@ antlrcpp::Any SysYAstVisitor::visitLOr2(SysYParser::LOr2Context *ctx) {
   false_bb_stack.pop_back();
   cur_bb->push_ir_instr(
       new BranchIR(lhs, true_branch_bb->label, false_branch_bb->label));
-  true_branch_bb->push_prev(cur_bb->label);
-  false_branch_bb->push_prev(cur_bb->label);
+  true_branch_bb->add_prev_bb(cur_bb->label);
+  false_branch_bb->add_prev_bb(cur_bb->label);
   cur_bb = false_branch_bb;
   auto rhs = ctx->lAndExp()->accept(this);
   spdlog::debug("leaveLOr2");

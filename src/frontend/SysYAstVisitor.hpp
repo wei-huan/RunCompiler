@@ -4,6 +4,7 @@
 #include "common/errors.hpp"
 #include "middle/BasicBlock.hpp"
 #include "middle/IR.hpp"
+#include "middle/SSA.hpp"
 #include "middle/SymbolTable.hpp"
 #include "spdlog/spdlog.h"
 #include <cstddef>
@@ -46,6 +47,9 @@ public:
                     const vector<int32_t> &shape,
                     vector<SSARightValue> &result);
 
+  void generate_lvalue_init_ir(SSALeftValue lvalue,
+                               vector<SSARightValue> rvalue_vec,
+                               vector<IRInstr *> *ir_vec);
   virtual antlrcpp::Any
   visitCompUnit(SysYParser::CompUnitContext *ctx) override;
 

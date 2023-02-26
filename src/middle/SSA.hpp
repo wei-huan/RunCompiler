@@ -36,14 +36,16 @@ struct SSARightValue : SSAValue {
 
 // 单一静态赋值左值, 即内存值变量
 struct SSALeftValue : SSAValue {
+private:
+  bool is_const_value = false;
+  bool is_global_value = false;
+  vector<int32_t> dimen_list; // shape: size of dimension
+public:
   string name;
   int32_t address = 0;
-  vector<int32_t> dimen_list; // Size for each dimension
   optional<vector<SSARightValue>> init_value =
       std::nullopt; // float 或 int 都先强制类型转换为 int32_t 存储
   vector<SSARightValue> value;
-  bool is_const = false;
-  bool is_global = false;
   bool is_arg = false;
   SSALeftValue(int id) : SSAValue(id, Type::I32){};
 
@@ -55,21 +57,23 @@ struct SSALeftValue : SSAValue {
   SSALeftValue(int id, Type type, vector<SSARightValue> init_value)
       : SSAValue(id, type), init_value(init_value), value(init_value){};
 
-  SSALeftValue(int id, Type type, bool is_const)
-      : SSAValue(id, type), is_const(is_const){};
+  SSALeftValue(int id, Type type, bool is_const_value)
+      : SSAValue(id, type), is_const_value(is_const_value){};
 
-  SSALeftValue(int id, Type type, bool is_const, bool is_global)
-      : SSAValue(id, type), is_const(is_const), is_global(is_global){};
+  SSALeftValue(int id, Type type, bool is_const_value, bool is_global_value)
+      : SSAValue(id, type), is_const_value(is_const_value),
+        is_global_value(is_global_value){};
 
   SSALeftValue(int id, Type type, string name)
       : SSAValue(id, type), name(name){};
 
-  SSALeftValue(int id, Type type, string name, bool is_const)
-      : SSAValue(id, type), name(name), is_const(is_const){};
+  SSALeftValue(int id, Type type, string name, bool is_const_value)
+      : SSAValue(id, type), name(name), is_const_value(is_const_value){};
 
-  SSALeftValue(int id, Type type, string name, bool is_const, bool is_global)
-      : SSAValue(id, type), name(name), is_const(is_const),
-        is_global(is_global){};
+  SSALeftValue(int id, Type type, string name, bool is_const_value,
+               bool is_global_value)
+      : SSAValue(id, type), name(name), is_const_value(is_const_value),
+        is_global_value(is_global_value){};
 
   SSALeftValue(int id, Type type, string name, vector<int32_t> dimen_list)
       : SSAValue(id, type), name(name), dimen_list(dimen_list){};
@@ -80,23 +84,30 @@ struct SSALeftValue : SSAValue {
         init_value(init_value), value(init_value){};
 
   SSALeftValue(int id, Type type, string name, vector<int32_t> dimen_list,
-               bool is_const, bool is_global)
+               bool is_const_value, bool is_global_value)
       : SSAValue(id, type), name(name), dimen_list(dimen_list),
-        is_const(is_const), is_global(is_global){};
+        is_const_value(is_const_value), is_global_value(is_global_value){};
 
   SSALeftValue(int id, Type type, string name, vector<int32_t> dimen_list,
-               vector<SSARightValue> init_value, bool is_const)
+               vector<SSARightValue> init_value, bool is_const_value)
       : SSAValue(id, type), name(name), dimen_list(dimen_list),
-        init_value(init_value), value(init_value), is_const(is_const){};
+        init_value(init_value), value(init_value),
+        is_const_value(is_const_value){};
 
   SSALeftValue(int id, Type type, string name, vector<int32_t> dimen_list,
-               vector<SSARightValue> init_value, bool is_const, bool is_global)
+               vector<SSARightValue> init_value, bool is_const_value,
+               bool is_global_value)
       : SSAValue(id, type), name(name), dimen_list(dimen_list),
-        init_value(init_value), value(init_value), is_const(is_const),
-        is_global(is_global){};
+        init_value(init_value), value(init_value),
+        is_const_value(is_const_value), is_global_value(is_global_value){};
 
   void set_init_value(vector<SSARightValue> _init_value) {
     init_value = _init_value;
     value = _init_value;
   }
+  vector<int32_t> shape() const { return dimen_list; }
+  void set_global() { is_global_value = true; }
+  bool is_global() const { return is_global_value; }
+  void set_const() { is_const_value = true; }
+  bool is_const() const { return is_const_value; }
 };

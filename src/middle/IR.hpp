@@ -1,6 +1,7 @@
 /// Generate Intermediate Representation     LLVM Style      High level IR
 #pragma once
 
+#include <cassert>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -54,7 +55,7 @@ struct IRInstr {
 struct GlobalDeclIR : IRInstr {
   SSALeftValue var;
   GlobalDeclIR(SSALeftValue var) : var(var), IRInstr(GLOBAL) {
-    var.is_global = true;
+    assert(var.is_global());
   }
   virtual string gen_code() const;
 };
