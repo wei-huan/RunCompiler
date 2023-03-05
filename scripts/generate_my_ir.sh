@@ -12,7 +12,7 @@ if (($# >= 1)); then
 		for syfile in $source_dir/*.sy; do
 			# echo "$syfile"
 			syfile_basename=$(basename $syfile)
-			./build/RunCompiler $syfile $output_directory/$syfile_basename $log_level
+			./build/RunCompiler $syfile $output_directory/${syfile_basename%%.sy}.sy.ll $log_level
 		done
 	else
 		syfile=$source_path # is file
