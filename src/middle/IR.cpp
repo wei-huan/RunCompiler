@@ -48,9 +48,9 @@ string array_init_value_string(int high_dim, vector<int32_t> shape,
 
 string GlobalDeclIR::gen_code() const {
   string code = "";
-  code += "@";      // global symbol
-  code += var.name; // name
-  code += " = ";    // assign
+  code += "@";            // global symbol
+  code += var.get_name(); // name
+  code += " = ";          // assign
   // attribute
   if (var.is_const()) {
     code += "constant ";
@@ -104,7 +104,7 @@ string LoadIR::gen_code() const {
   code += ", ptr ";           // ptr aka left value
   if (s1.is_global()) {
     code += "@";
-    code += s1.name;
+    code += s1.get_name();
   } else {
     code += "%";
     code += std::to_string(s1.id);
@@ -145,7 +145,7 @@ string StoreValueIR::gen_code() const {
   code += ", ptr ";
   if (lvalue.is_global()) {
     code += "@";
-    code += lvalue.name;
+    code += lvalue.get_name();
   } else {
     code += "%";
     code += std::to_string(lvalue.id);
@@ -319,8 +319,8 @@ string CallFuncIR::gen_code() const {
       code += entry.type.get_name(); // type
       code += " ";
       if (entry.id) {
-        code += "%";                      // local symbol
-        code += std::to_string(entry.id); // name
+      code += "%";                      // local symbol
+      code += std::to_string(entry.id); // name
       } else
         code += std::to_string(entry.value.value()); // value
       if (i < size) {
@@ -343,7 +343,7 @@ string GEPIR::gen_code() const {
   code += ", ptr ";                                // ptr
   if (s1.is_global()) {
     code += "@";
-    code += s1.name;
+    code += s1.get_name();
   } else {
     code += "%";
     code += std::to_string(s1.id);

@@ -87,13 +87,13 @@ struct StoreValueIR : IRInstr {
   virtual string gen_code() const;
 };
 
-struct StoreLValueIR : IRInstr {
-  SSALeftValue lvalue;
-  SSALeftValue variable;
-  StoreLValueIR(SSALeftValue variable, SSALeftValue lvalue)
-      : variable(variable), lvalue(lvalue), IRInstr(STORE) {}
-  virtual string gen_code() const;
-};
+// struct StoreLValueIR : IRInstr {
+//   SSALeftValue lvalue;
+//   SSALeftValue variable;
+//   StoreLValueIR(SSALeftValue variable, SSALeftValue lvalue)
+//       : variable(variable), lvalue(lvalue), IRInstr(STORE) {}
+//   virtual string gen_code() const;
+// };
 
 struct CalcuIR : IRInstr {
   SSARightValue d1;

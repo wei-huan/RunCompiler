@@ -7,6 +7,7 @@
 #include <iostream>
 #include <memory>
 #include <optional>
+#include <sys/_types/_int32_t.h>
 
 using std::make_shared;
 using std::pair;
@@ -529,7 +530,7 @@ SysYAstVisitor::visitFuncFParams(SysYParser::FuncFParamsContext *ctx) {
   spdlog::debug("visitFuncFParams");
   vector<pair<string, VariableEntry>> ret;
   for (auto i : ctx->funcFParam())
-    ret.push_back(i->accept(this));
+    ret.emplace_back(i->accept(this));
   spdlog::debug("leaveFuncFParams");
   return ret;
 }
@@ -539,9 +540,20 @@ SysYAstVisitor::visitFuncFParam(SysYParser::FuncFParamContext *ctx) {
   spdlog::debug("visitFuncFParam");
   Type type(ctx->bType()->getText());
   string name = ctx->Identifier()->getText();
-  shared_ptr<FunctionEntry> cur_func = ftable.get_func(cur_func_name);
-  SSALeftValue lvalue(cur_func->alloc_ssa(), type, name);
-  VariableEntry entry(lvalue);
+  auto cur_func = ftable.get_func(cur_func_name);
+  vector<int32_t> shape;
+  if (ctx->Lbrkt().size() > 0) {
+    shape.emplace_back(1 << 16); // TODO: change to real infinity
+  }
+  value_mode = ValueMode::Const;
+  cur_type.set_type(type.get_type());
+  for (auto i : ctx->constExp()) {
+    auto dim = i->accept(this).as<int32_t>();
+    shape.emplace_back(dim);
+  }
+  value_mode = ValueMode::Normal;
+  VariableEntry entry(
+      SSALeftValue(cur_func->alloc_ssa(), type, name, shape, true));
   spdlog::debug("leaveFuncFParam");
   return pair<string, VariableEntry>{name, entry};
 }
@@ -569,7 +581,7 @@ SysYAstVisitor::visitAssignment(SysYParser::AssignmentContext *ctx) {
   auto lvalue = ctx->lVal()->accept(this).as<SSALeftValue>();
   auto rvalue = ctx->exp()->accept(this).as<SSARightValue>();
   if (cur_bb == nullptr) {
-    std::cout << "cur_bb nullptr" << std::endl;
+    throw RuntimeError("cur_bb nullptr");
   }
   cur_bb->push_ir_instr(new StoreValueIR(lvalue, rvalue));
   spdlog::debug("leaveAssignment");
@@ -797,11 +809,11 @@ antlrcpp::Any SysYAstVisitor::visitCond(SysYParser::CondContext *ctx) {
 antlrcpp::Any SysYAstVisitor::visitLVal(SysYParser::LValContext *ctx) {
   spdlog::debug("visitLVal");
   auto res = ctx->Identifier()->getText();
+  spdlog::debug("LVal: " + res);
   // TODO: check existence of identifier
   vector<SSARightValue> indexs;
-  for (auto i : ctx->exp()) {
-    SSARightValue cur = i->accept(this);
-    indexs.emplace_back(cur);
+  for (auto exp : ctx->exp()) {
+    indexs.emplace_back(exp->accept(this));
   }
   if (value_mode == Const) {
     // TODO: Array Value
@@ -820,17 +832,14 @@ antlrcpp::Any SysYAstVisitor::visitLVal(SysYParser::LValContext *ctx) {
     auto entry = cur_vtable->get_variable(res);
     if (entry) {
       auto lvalue = entry.value().lvalue;
-      int dimensions = lvalue.shape().size();
       auto cur_func = ftable.get_func(cur_func_name);
-      // TODO: add ptr support 56_sort_test2.sy
-      for (int i = 1; i <= dimensions; i++) {
-        vector<int32_t> new_shape = lvalue.shape();
+      auto type = lvalue.get_type();
+      for (auto i : indexs) {
+        auto new_shape = lvalue.shape();
         new_shape.erase(new_shape.begin());
-        SSALeftValue new_lvalue(cur_func->alloc_ssa(), lvalue.type, new_shape);
-        SSARightValue index1 = indexs.front();
+        SSALeftValue new_lvalue(cur_func->alloc_ssa(), type, new_shape);
         cur_bb->push_ir_instr(
-            new GEPIR(new_lvalue, lvalue, SSARightValue(0), index1));
-        indexs.erase(indexs.begin());
+            new GEPIR(new_lvalue, lvalue, SSARightValue(0), i));
         lvalue = new_lvalue;
       }
       spdlog::debug("leaveLVal_1");
@@ -857,11 +866,23 @@ SysYAstVisitor::visitPrimaryExp2(SysYParser::PrimaryExp2Context *ctx) {
   if (value_mode != Const) {
     auto cur_func = ftable.get_func(cur_func_name);
     // TODO find SSALeftValue by ctx.Identifier()
-    auto s1 = ctx->lVal()->accept(this).as<SSALeftValue>();
-    SSARightValue d1(cur_func->alloc_ssa(), cur_type);
-    cur_bb->push_ir_instr(new LoadIR(d1, s1));
-    spdlog::debug("leavePrimaryExp2_0");
-    return d1;
+    SSALeftValue s1 = ctx->lVal()->accept(this).as<SSALeftValue>();
+    if (s1.shape().size()) {
+      // address pointer
+      auto new_shape = s1.shape();
+      new_shape.erase(new_shape.begin());
+      SSALeftValue d1(ftable.get_func(cur_func_name)->alloc_ssa(), s1.type,
+                      new_shape);
+      cur_bb->push_ir_instr(
+          new GEPIR(d1, s1, SSARightValue(0), SSARightValue(0)));
+      return d1.to_rvalue();
+    } else {
+      // scalar value
+      SSARightValue d1(cur_func->alloc_ssa(), cur_type);
+      cur_bb->push_ir_instr(new LoadIR(d1, s1));
+      spdlog::debug("leavePrimaryExp2_0");
+      return d1;
+    }
   } else {
     auto res = visitChildren(ctx);
     spdlog::debug("leavePrimaryExp2_1");
@@ -933,7 +954,6 @@ antlrcpp::Any SysYAstVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
   if (value_mode == ValueMode::Const) {
     throw RuntimeError(
         "function call occurs in compile-time constant expression");
-    return nullptr;
   } else {
     string func_name = ctx->Identifier()->getText();
     shared_ptr<FunctionEntry> callee_entry = ftable.get_func(func_name);
@@ -946,8 +966,8 @@ antlrcpp::Any SysYAstVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
       // todo: verify arg with func arg list
     }
     if (callee_entry->return_type.type != Type::VOID) {
-      int ssa_id = caller_entry->alloc_ssa();
-      SSARightValue ret_rvalue(ssa_id, callee_entry->return_type);
+      SSARightValue ret_rvalue(caller_entry->alloc_ssa(),
+                               callee_entry->return_type);
       cur_bb->push_ir_instr(new CallFuncIR(func_name, ret_rvalue, args));
       spdlog::debug("leaveUnary2_1");
       return ret_rvalue;
@@ -1261,7 +1281,7 @@ antlrcpp::Any SysYAstVisitor::visitLOr2(SysYParser::LOr2Context *ctx) {
 antlrcpp::Any SysYAstVisitor::visitConstExp(SysYParser::ConstExpContext *ctx) {
   spdlog::debug("visitConstExp");
   if (cur_type.type == Type::I32) {
-    int compile_value = ctx->addExp()->accept(this);
+    int32_t compile_value = ctx->addExp()->accept(this);
     spdlog::debug("leaveConstExp_0");
     return compile_value;
   } else if (cur_type.type == Type::FLOAT) {
@@ -1269,7 +1289,7 @@ antlrcpp::Any SysYAstVisitor::visitConstExp(SysYParser::ConstExpContext *ctx) {
     spdlog::debug("leaveConstExp_1");
     return compile_value;
   } else {
-    std::cout << "cur_type: " << cur_type.get_name() << std::endl;
+    spdlog::debug("curr_type: " + cur_type.get_name());
     throw RuntimeError("visitConstExp match error exp type");
   }
 }

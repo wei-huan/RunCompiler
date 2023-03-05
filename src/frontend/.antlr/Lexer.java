@@ -1,4 +1,4 @@
-// Generated from /home/weihuan/WorkSpace/Compiler/RunCompiler/src/frontend/Lexer.g4 by ANTLR 4.9.2
+// Generated from /Users/tanghaozhe/WorkSpace/Compiler/RunCompiler/src/frontend/Lexer.g4 by ANTLR 4.9.2
 import org.antlr.v4.runtime.Lexer;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.Token;

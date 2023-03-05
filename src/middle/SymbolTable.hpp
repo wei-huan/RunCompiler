@@ -28,7 +28,7 @@ struct VariableEntry {
   SSALeftValue lvalue;
   void set_const() { lvalue.set_const(); }
   bool get_const() { return lvalue.is_const(); }
-  void set_arg() { lvalue.is_arg = true; }
+  // void set_arg() { lvalue.is_arg = true; }
   void set_type(Type type) { lvalue.type = type; }
   // 设置各个维度
   void add_dimen(int32_t value) { lvalue.shape().emplace_back(value); }
