@@ -508,6 +508,8 @@ antlrcpp::Any SysYAstVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
     } else {
       ret_bb->push_ir_instr(new ReturnIR(std::nullopt));
     }
+  } else {
+    throw NoReturnInFunc();
   }
 
   ret_value_opt = std::nullopt;

@@ -29,6 +29,12 @@ class VoidFuncReturnValueUsed : public SyntaxError {
       : SyntaxError("use the return value of void function") {}
 };
 
+class NoReturnInFunc : public SyntaxError {
+ public:
+  NoReturnInFunc()
+      : SyntaxError("no return statement in function") {}
+};
+
 class ArrayTypedValueUsed : public SyntaxError {
  public:
   ArrayTypedValueUsed()
