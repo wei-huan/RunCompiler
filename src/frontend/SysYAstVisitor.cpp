@@ -664,26 +664,26 @@ SysYAstVisitor::visitWhileStmt(SysYParser::WhileStmtContext *ctx) {
   spdlog::debug("visitWhileStmt");
   auto cur_func = ftable.get_func(cur_func_name);
   auto cond_bb = cur_func->alloc_bb();
-  cond_first_bb_stack.push_back(cond_bb);
+  continue_target_bb.push_back(cond_bb);
   cur_bb->push_ir_instr(new BranchIR(cond_bb->label));
   cond_bb->add_prev_bb(cur_bb->label);
   cur_bb = cond_bb;
   ctx->cond()->accept(this);
-  cur_while_false_bb = false_bb_stack.back();
+  break_target_bb.push_back(false_bb_stack.back());
   cur_bb = true_bb_stack.back();
   ctx->stmt()->accept(this);
   if (!cur_bb->is_have_exit()) {
     // while last true basic block to cond basic block
-    cur_bb->push_ir_instr(new BranchIR(cond_first_bb_stack.back()->label));
-    cond_first_bb_stack.back()->add_prev_bb(cur_bb->label);
+    cur_bb->push_ir_instr(new BranchIR(continue_target_bb.back()->label));
+    continue_target_bb.back()->add_prev_bb(cur_bb->label);
   } else {
     // while last true basic block may return early
   }
-  cond_first_bb_stack.pop_back();
-  cur_while_false_bb = nullptr;
-  true_bb_stack.pop_back();
   cur_bb = false_bb_stack.back();
+  true_bb_stack.pop_back();
   false_bb_stack.pop_back();
+  break_target_bb.pop_back();
+  continue_target_bb.pop_back();
   spdlog::debug("leaveWhileStmt");
   return nullptr;
 }
@@ -692,10 +692,10 @@ antlrcpp::Any
 SysYAstVisitor::visitBreakStmt(SysYParser::BreakStmtContext *ctx) {
   spdlog::debug("visitBreakStmt");
   auto res = visitChildren(ctx);
-  if (!cur_while_false_bb) {
+  if (!break_target_bb.size()) {
     throw InvalidBreak();
   }
-  cur_bb->push_ir_instr(new BranchIR(cur_while_false_bb->label));
+  cur_bb->push_ir_instr(new BranchIR(break_target_bb.back()->label));
   auto cur_func = ftable.get_func(cur_func_name);
   cur_bb = cur_func->alloc_bb(); // unreachable block, drop in next pass
   spdlog::debug("leaveBreakStmt");
@@ -706,10 +706,10 @@ antlrcpp::Any
 SysYAstVisitor::visitContinueStmt(SysYParser::ContinueStmtContext *ctx) {
   spdlog::debug("visitContinueStmt");
   auto res = visitChildren(ctx);
-  if (cond_first_bb_stack.empty()) {
+  if (!continue_target_bb.size()) {
     throw InvalidContinue();
   }
-  cur_bb->push_ir_instr(new BranchIR(cond_first_bb_stack.back()->label));
+  cur_bb->push_ir_instr(new BranchIR(continue_target_bb.back()->label));
   auto cur_func = ftable.get_func(cur_func_name);
   cur_bb = cur_func->alloc_bb(); // unreachable block, drop in next pass
   spdlog::debug("leaveContinueStmt");

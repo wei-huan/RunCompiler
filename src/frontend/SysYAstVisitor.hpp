@@ -27,10 +27,9 @@ public:
   shared_ptr<BasicBlock> cur_bb = nullptr;
   vector<shared_ptr<BasicBlock>> true_bb_stack;
   vector<shared_ptr<BasicBlock>> false_bb_stack;
-  // for continue jump to while cond bb
-  vector<shared_ptr<BasicBlock>> cond_first_bb_stack;
-  // for break jump out of while loop
-  shared_ptr<BasicBlock> cur_while_false_bb = nullptr;
+  vector<shared_ptr<BasicBlock>> continue_target_bb;
+  vector<shared_ptr<BasicBlock>> break_target_bb;
+  
   shared_ptr<FunctionEntry> get_func(string name);
 
   void register_lib_func();
