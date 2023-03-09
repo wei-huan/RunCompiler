@@ -509,10 +509,10 @@ antlrcpp::Any SysYAstVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
     } else {
       ret_bb->push_ir_instr(new ReturnIR(std::nullopt));
     }
-  }
-
-  if (!has_return) {
-    throw NoReturnInFunc(func_name);
+  } else {
+    if (!has_return) {
+      cur_bb->push_ir_instr(new ReturnIR(std::nullopt));
+    }
   }
 
   ret_value_opt = std::nullopt;
@@ -614,7 +614,10 @@ SysYAstVisitor::visitBlockStmt(SysYParser::BlockStmtContext *ctx) {
 antlrcpp::Any SysYAstVisitor::visitIfStmt1(SysYParser::IfStmt1Context *ctx) {
   spdlog::debug("visitIfStmt1");
   auto cur_func = ftable.get_func(cur_func_name);
+  auto old_value_mode = value_mode;
+  value_mode = Condition;
   ctx->cond()->accept(this);
+  value_mode = old_value_mode;
   cur_bb = true_bb_stack.back();
   cur_bb->update_alias("if.then");
   ctx->stmt()->accept(this);
@@ -637,7 +640,10 @@ antlrcpp::Any SysYAstVisitor::visitIfStmt1(SysYParser::IfStmt1Context *ctx) {
 antlrcpp::Any SysYAstVisitor::visitIfStmt2(SysYParser::IfStmt2Context *ctx) {
   spdlog::debug("visitIfStmt2");
   auto cur_func = ftable.get_func(cur_func_name);
+  auto old_value_mode = value_mode;
+  value_mode = Condition;
   ctx->cond()->accept(this);
+  value_mode = old_value_mode;
   cur_bb = true_bb_stack.back();
   cur_bb->update_alias("if.then");
   ctx->stmt(0)->accept(this);
@@ -670,14 +676,17 @@ antlrcpp::Any SysYAstVisitor::visitIfStmt2(SysYParser::IfStmt2Context *ctx) {
 
 antlrcpp::Any
 SysYAstVisitor::visitWhileStmt(SysYParser::WhileStmtContext *ctx) {
-  spdlog::debug("visitWhileStmt");
+  spdlog::trace("visitWhileStmt");
   auto cur_func = ftable.get_func(cur_func_name);
   auto cond_bb = cur_func->alloc_bb("while.cond");
   continue_target_bb.push_back(cond_bb);
   cur_bb->push_ir_instr(new BranchIR(cond_bb->label));
   cond_bb->add_prev_bb(cur_bb->label);
   cur_bb = cond_bb;
+  auto old_value_mode = value_mode;
+  value_mode = Condition;
   ctx->cond()->accept(this);
+  value_mode = old_value_mode;
   break_target_bb.push_back(false_bb_stack.back());
   cur_bb = true_bb_stack.back();
   cur_bb->update_alias("while.true");
@@ -695,7 +704,7 @@ SysYAstVisitor::visitWhileStmt(SysYParser::WhileStmtContext *ctx) {
   false_bb_stack.pop_back();
   break_target_bb.pop_back();
   continue_target_bb.pop_back();
-  spdlog::debug("leaveWhileStmt");
+  spdlog::trace("leaveWhileStmt");
   return nullptr;
 }
 
@@ -906,7 +915,7 @@ antlrcpp::Any
 SysYAstVisitor::visitPrimaryExp3(SysYParser::PrimaryExp3Context *ctx) {
   spdlog::debug("visitPrimaryExp3");
   int32_t value = ctx->number()->accept(this);
-  if (value_mode == Normal) {
+  if (value_mode != Const) {
     SSARightValue var(cur_num_type, value);
     spdlog::debug("leavePrimaryExp3_0");
     return var;
@@ -1029,13 +1038,11 @@ antlrcpp::Any SysYAstVisitor::visitUnary3(SysYParser::Unary3Context *ctx) {
       if (ssa.id) {
         int d1_id = cur_func->alloc_ssa();
         SSARightValue ret1_ssa(d1_id, ssa.type);
-        SSARightValue temp1_ssa(0);
         cur_bb->push_ir_instr(
-            new IcmpIR(ret1_ssa, ssa, temp1_ssa, IcmpType::NEQ));
+            new IcmpIR(ret1_ssa, ssa, SSARightValue(0), IcmpType::NEQ));
         int d2_id = cur_func->alloc_ssa();
         SSARightValue ret2_ssa(d2_id, ssa.type);
-        SSARightValue temp2_ssa(1);
-        cur_bb->push_ir_instr(new XorIR(ret2_ssa, ret1_ssa, temp2_ssa));
+        cur_bb->push_ir_instr(new XorIR(ret2_ssa, ret1_ssa, SSARightValue(1)));
         int d3_id = cur_func->alloc_ssa();
         SSARightValue ret3_ssa(d3_id, ssa.type);
         cur_bb->push_ir_instr(new ZExtIR(ret3_ssa, ret2_ssa));
@@ -1210,9 +1217,18 @@ antlrcpp::Any SysYAstVisitor::visitRel2(SysYParser::Rel2Context *ctx) {
 
 antlrcpp::Any SysYAstVisitor::visitRel1(SysYParser::Rel1Context *ctx) {
   spdlog::debug("visitRel1");
-  auto res = ctx->addExp()->accept(this);
-  spdlog::debug("leaveRel1");
-  return res;
+  auto lhs_ssa = ctx->addExp()->accept(this);
+  if (value_mode == Condition) {
+    shared_ptr<FunctionEntry> cur_func = ftable.get_func(cur_func_name);
+    SSARightValue ret_ssa(cur_func->alloc_ssa(), Type::I32);
+    cur_bb->push_ir_instr(
+        new IcmpIR(ret_ssa, lhs_ssa, SSARightValue(0), IcmpType("!=")));
+    spdlog::debug("leaveRel1_0");
+    return ret_ssa;
+  } else {
+    spdlog::debug("leaveRel1_1");
+    return lhs_ssa;
+  }
 }
 
 antlrcpp::Any SysYAstVisitor::visitEq1(SysYParser::Eq1Context *ctx) {
