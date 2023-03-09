@@ -84,6 +84,7 @@ struct FunctionEntry {
   }
   void set_lib_func_arg_list(vector<Type::TYPE> type_list);
   shared_ptr<BasicBlock> alloc_bb();
+  shared_ptr<BasicBlock> alloc_bb(string alias);
   int alloc_ssa() { return cur_ssa_id++; }
   void visit_basic_blocks();
   void gen_code();

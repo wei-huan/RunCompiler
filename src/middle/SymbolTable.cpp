@@ -52,6 +52,12 @@ shared_ptr<BasicBlock> FunctionEntry::alloc_bb() {
   return basic_blocks.back();
 }
 
+shared_ptr<BasicBlock> FunctionEntry::alloc_bb(string alias) {
+  auto spbb = std::make_shared<BasicBlock>(cur_ssa_id++, alias);
+  basic_blocks.emplace_back(spbb);
+  return basic_blocks.back();
+}
+
 void FunctionEntry::set_lib_func_arg_list(vector<Type::TYPE> type_list) {
   vector<pair<string, VariableEntry>> list;
   for (auto type : type_list) {
@@ -68,7 +74,8 @@ void FunctionEntry::set_lib_func_arg_list(vector<Type::TYPE> type_list) {
 
 void FunctionEntry::visit_basic_blocks() {
   for (auto bb : basic_blocks) {
-    std::cout << bb->label << ":";
+    std::cout << bb->label << " (" << bb->get_alias() << ")"
+              << ":";
     if (bb->prev_bb.size()) {
       std::cout << "                                         ; preds = ";
       for (auto label : bb->prev_bb) {
@@ -118,6 +125,7 @@ void FunctionTable::traverse() {
     spdlog::info(key);
   }
 };
+
 void FunctionTable::gen_code() {
   for (auto &[key, val] : ftable) {
     if (key == "_init") {
