@@ -15,6 +15,7 @@ class SysYAstVisitor : public SysYBaseVisitor {
   enum ValueMode { Normal, Const } value_mode = Normal;
 
 public:
+  bool has_return = false;
   int depth = 0; // Block Depth
   FunctionTable ftable;
   VariableTable global_vtable = nullptr;
@@ -29,7 +30,7 @@ public:
   vector<shared_ptr<BasicBlock>> false_bb_stack;
   vector<shared_ptr<BasicBlock>> continue_target_bb;
   vector<shared_ptr<BasicBlock>> break_target_bb;
-  
+
   shared_ptr<FunctionEntry> get_func(string name);
 
   void register_lib_func();

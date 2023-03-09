@@ -462,6 +462,7 @@ antlrcpp::Any SysYAstVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
   Type return_type(ctx->funcType()->getText());
   auto func_entry = make_shared<FunctionEntry>(func_name, return_type);
   ftable.register_func(func_name, func_entry);
+  has_return = false;
   cur_func_name = func_name;
   cur_vtable = cur_vtable->new_ctable();
   func_entry->set_vtable(cur_vtable);
@@ -508,8 +509,10 @@ antlrcpp::Any SysYAstVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
     } else {
       ret_bb->push_ir_instr(new ReturnIR(std::nullopt));
     }
-  } else {
-    // throw NoReturnInFunc();
+  }
+
+  if (!has_return) {
+    throw NoReturnInFunc(func_name);
   }
 
   ret_value_opt = std::nullopt;
@@ -728,6 +731,7 @@ antlrcpp::Any
 SysYAstVisitor::visitReturnStmt(SysYParser::ReturnStmtContext *ctx) {
   spdlog::debug("visitReturnStmt");
   auto cur_func = ftable.get_func(cur_func_name);
+  has_return = true;
   if (ctx->exp()) {
     if (cur_func->return_type.type == Type::VOID) {
       throw VoidFuncReturnValueUsed();

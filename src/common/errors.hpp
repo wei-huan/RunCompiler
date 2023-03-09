@@ -31,8 +31,8 @@ class VoidFuncReturnValueUsed : public SyntaxError {
 
 class NoReturnInFunc : public SyntaxError {
  public:
-  NoReturnInFunc()
-      : SyntaxError("no return statement in function") {}
+  NoReturnInFunc(std::string func_name)
+      : SyntaxError("no return statement in function " + func_name) {}
 };
 
 class ArrayTypedValueUsed : public SyntaxError {
