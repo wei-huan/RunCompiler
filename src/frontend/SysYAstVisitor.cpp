@@ -453,7 +453,7 @@ SysYAstVisitor::visitListInitval(SysYParser::ListInitvalContext *ctx) {
 // value
 //
 antlrcpp::Any SysYAstVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
-  spdlog::debug("visitFuncDef");
+  spdlog::trace("visitFuncDef");
   string func_name(ctx->Identifier()->getText());
   if (ftable.is_exist(func_name) || global_vtable.is_exist(func_name)) {
     throw DuplicateGlobalName(func_name);
@@ -519,7 +519,7 @@ antlrcpp::Any SysYAstVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
   ret_bb_opt = std::nullopt;
   cur_func_name = "_init";
   cur_vtable = cur_vtable->ptable;
-  spdlog::debug("leaveFuncDef " + func_name);
+  spdlog::trace("leaveFuncDef " + func_name);
   return nullptr;
 }
 
@@ -1213,8 +1213,8 @@ antlrcpp::Any SysYAstVisitor::visitRel1(SysYParser::Rel1Context *ctx) {
   //   spdlog::debug("leaveRel1_0");
   //   return ret_ssa;
   // } else {
-    spdlog::debug("leaveRel1_1");
-    return lhs_ssa;
+  spdlog::debug("leaveRel1_1");
+  return lhs_ssa;
   // }
 }
 
@@ -1263,7 +1263,8 @@ antlrcpp::Any SysYAstVisitor::visitLAnd1(SysYParser::LAnd1Context *ctx) {
   spdlog::debug("visitLAnd1");
   auto res = ctx->eqExp()->accept(this);
   auto last_instr = cur_bb->last_instr();
-  if (last_instr == std::nullopt || last_instr.value()->get_type() != IRInstr::ICMP) {
+  if (last_instr == std::nullopt ||
+      last_instr.value()->get_type() != IRInstr::ICMP) {
     auto cur_func = ftable.get_func(cur_func_name);
     SSARightValue ret_ssa(cur_func->alloc_ssa(), Type::I32);
     cur_bb->push_ir_instr(

@@ -98,11 +98,14 @@ void FunctionEntry::gen_code() {
   for (auto [key, var] : arg_list) {
     i++;
     if (var.lvalue.type.type == Type::I32) {
-      func_def += "i32 ";
+      func_def += "i32";
     } else {
-      func_def += "float ";
+      func_def += "float";
     }
-    func_def += "%";
+    for (int i = 0; i < var.lvalue.shape().size(); i++) {
+      func_def += "*";
+    }
+    func_def += " %";
     func_def += std::to_string(var.lvalue.id);
     if (i < size)
       func_def += ", ";
