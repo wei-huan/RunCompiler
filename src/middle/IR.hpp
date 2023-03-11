@@ -49,6 +49,7 @@ struct IRInstr {
     };
     return names[(int)oper];
   }
+  OPERATOR get_type() { return oper; }
   virtual string gen_code() const = 0;
 };
 

@@ -4,14 +4,16 @@
 #include <algorithm>
 #include <list>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "common/errors.hpp"
 #include "middle/IR.hpp"
 
+using std::optional;
+using std::shared_ptr;
 using std::string;
-using std::unique_ptr;
 using std::vector;
 
 // evey function may have many basic blocks
@@ -20,11 +22,11 @@ struct BasicBlock {
 private:
   string alias;
   bool have_exit = false;
+  vector<int> prev_bb; // info about control flow
+  vector<shared_ptr<IRInstr>> instrs;
 
 public:
-  int label;           // label = 0 for entry basic block
-  vector<int> prev_bb; // info about control flow
-  vector<unique_ptr<IRInstr>> instrs;
+  int label; // label = 0 for entry basic block
   BasicBlock(int label) : label(label){};
   BasicBlock(int label, string alias) : label(label), alias(alias){};
   // append a new IR instruction to the basic block
@@ -37,4 +39,12 @@ public:
   void update_alias(string new_alias) { alias = new_alias; }
   void print_ir_code();
   bool is_have_exit() { return have_exit; }
+  vector<int> get_prev_bb() { return prev_bb; }
+  optional<shared_ptr<IRInstr>> last_instr() {
+    if (instrs.size()) {
+      return instrs.back();
+    } else {
+      return std::nullopt;
+    }
+  }
 };

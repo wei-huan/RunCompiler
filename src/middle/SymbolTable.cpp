@@ -76,9 +76,9 @@ void FunctionEntry::visit_basic_blocks() {
   for (auto bb : basic_blocks) {
     std::cout << bb->label << " (" << bb->get_alias() << ")"
               << ":";
-    if (bb->prev_bb.size()) {
+    if (bb->get_prev_bb().size()) {
       std::cout << "                                         ; preds = ";
-      for (auto label : bb->prev_bb) {
+      for (auto label : bb->get_prev_bb()) {
         std::cout << "%" << label << ", ";
       }
     }

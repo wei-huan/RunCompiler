@@ -12,7 +12,7 @@
 using std::vector;
 
 class SysYAstVisitor : public SysYBaseVisitor {
-  enum ValueMode { Normal, Const, Condition } value_mode = Normal;
+  enum ValueMode { Normal, Const } value_mode = Normal;
 
 public:
   bool has_return = false;
