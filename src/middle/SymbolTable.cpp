@@ -23,10 +23,10 @@ void VariableTable::traverse(int depth) {
     for (int i = 0; i < depth; i++) {
       std::cout << "\t";
     }
-    if (entry.get_const()) {
+    if (entry.is_const()) {
       try {
         std::cout << key << ":"
-                  << entry.lvalue.value.back().value.value() // TODO
+                  << entry.value.back().value.value() // TODO
                   << std::endl;
       } catch (const std::bad_optional_access &e) {
         std::cout << e.what() << '\n';
@@ -58,7 +58,7 @@ shared_ptr<BasicBlock> FunctionEntry::alloc_bb(string alias) {
   return basic_blocks.back();
 }
 
-void FunctionEntry::set_lib_func_arg_list(vector<Type::TYPE> type_list) {
+void FunctionEntry::set_lib_func_arg_list(vector<Type> type_list) {
   vector<pair<string, VariableEntry>> list;
   for (auto type : type_list) {
     if (type == Type::VOID) {
@@ -97,16 +97,16 @@ void FunctionEntry::gen_ir_code() {
   int size = arg_list.size(), i = 0;
   for (auto [key, var] : arg_list) {
     i++;
-    if (var.lvalue.type.type == Type::I32) {
+    if (var.type == Type::I32) {
       func_def += "i32";
     } else {
       func_def += "float";
     }
-    for (int i = 0; i < var.lvalue.shape().size(); i++) {
+    for (int i = 0; i < var.get_dimension(); i++) {
       func_def += "*";
     }
     func_def += " %";
-    func_def += std::to_string(var.lvalue.id);
+    func_def += std::to_string(var.id);
     if (i < size)
       func_def += ", ";
   }

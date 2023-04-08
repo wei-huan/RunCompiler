@@ -31,15 +31,15 @@ void SysYAstVisitor::register_lib_func() {
 
   // put to i/o
   auto putint = ftable.register_lib_func("putint", Type::VOID);
-  vector<Type::TYPE> putint_arg_list(1, Type::I32);
+  vector<Type> putint_arg_list(1, Type::I32);
   putint->set_lib_func_arg_list(putint_arg_list);
 
   auto putch = ftable.register_lib_func("putch", Type::VOID);
-  vector<Type::TYPE> putch_arg_list(1, Type::I32);
+  vector<Type> putch_arg_list(1, Type::I32);
   putch->set_lib_func_arg_list(putch_arg_list);
 
   auto putfloat = ftable.register_lib_func("putfloat", Type::VOID);
-  vector<Type::TYPE> putfloat_arg_list(1, Type::FLOAT);
+  vector<Type> putfloat_arg_list(1, Type::FLOAT);
   putfloat->set_lib_func_arg_list(putfloat_arg_list);
 
   // todo: arg list
@@ -77,8 +77,7 @@ antlrcpp::Any
 SysYAstVisitor::visitConstDecl(SysYParser::ConstDeclContext *ctx) {
   spdlog::debug("visitConstDecl");
   value_mode = ValueMode::Const;
-  string type = ctx->bType()->accept(this).as<string>();
-  cur_type.set_type(type);
+  cur_type = TYPE::parse_type(ctx->bType()->accept(this).as<string>());
   for (auto def : ctx->constDef()) {
     def->accept(this);
   }
@@ -185,23 +184,23 @@ antlrcpp::Any SysYAstVisitor::visitConstDef(SysYParser::ConstDefContext *ctx) {
 
   /* create left value */
   auto left_id = ftable.get_func(cur_func_name)->alloc_ssa();
-  SSALeftValue lvalue(left_id, cur_type, ident_name, shape, rvalue_vec, true);
+  VariableEntry entry(left_id, cur_type, ident_name, shape, rvalue_vec, true);
 
   /* add initialize ir instructions */
   if (cur_func_name == "_init") {
     // declare variable in global basic block
-    lvalue.set_global();
-    cur_bb->push_ir_instr(new GlobalDeclIR(lvalue));
+    entry.set_global();
+    cur_bb->push_ir_instr(new GlobalDeclIR(entry));
   } else {
     // allocate space and initialize in function
     vector<IRInstr *> ir_vec;
-    generate_lvalue_init_ir(lvalue, rvalue_vec, &ir_vec);
-    cur_bb->push_ir_instr(new AllocaIR(lvalue));
+    generate_lvalue_init_ir(entry, rvalue_vec, &ir_vec);
+    cur_bb->push_ir_instr(new AllocaIR(entry));
     cur_bb->push_ir_instrs(ir_vec);
   }
 
   /* add variable entry to variable table */
-  cur_vtable->append(ident_name, VariableEntry(lvalue));
+  cur_vtable->append(ident_name, entry);
   spdlog::debug("leaveConstDef");
   return nullptr;
 }
@@ -224,8 +223,7 @@ antlrcpp::Any SysYAstVisitor::visitListConstInitVal(
 
 antlrcpp::Any SysYAstVisitor::visitVarDecl(SysYParser::VarDeclContext *ctx) {
   spdlog::debug("visitVarDecl");
-  string type = ctx->bType()->accept(this).as<string>();
-  cur_type.set_type(type);
+  cur_type = TYPE::parse_type(ctx->bType()->accept(this).as<string>());
   for (auto def : ctx->varDef()) {
     def->accept(this);
   }
@@ -258,16 +256,15 @@ SysYAstVisitor::visitUninitVarDef(SysYParser::UninitVarDefContext *ctx) {
     }
     value_mode = Normal;
   }
-  SSALeftValue lvalue(left_id, cur_type, ident_name, shape);
+  VariableEntry entry(left_id, cur_type, ident_name, shape);
   if (cur_func_name == "_init") {
-    lvalue.set_global();
+    entry.set_global();
   }
-  VariableEntry entry(lvalue);
   // 在函数体里就创建 Alloca IR
   if (cur_func_name != "_init") {
-    cur_bb->push_ir_instr(new AllocaIR(entry.lvalue));
+    cur_bb->push_ir_instr(new AllocaIR(entry));
   } else { // 在函数外面就创建 GlobalDecl IR
-    cur_bb->push_ir_instr(new GlobalDeclIR(entry.lvalue));
+    cur_bb->push_ir_instr(new GlobalDeclIR(entry));
   }
   cur_vtable->append(ident_name, entry);
   spdlog::debug("leaveUninitVarDef");
@@ -348,7 +345,7 @@ SysYAstVisitor::parse_var_init(SysYParser::InitValContext *root,
 void SysYAstVisitor::generate_lvalue_init_ir(SSALeftValue lvalue,
                                              vector<SSARightValue> rvalue_vec,
                                              vector<IRInstr *> *ir_vec) {
-  auto shape = lvalue.shape();
+  auto shape = lvalue.get_shape();
   if (shape.empty()) {
     if (rvalue_vec.size() == 1) {
       ir_vec->emplace_back(new StoreValueIR(lvalue, rvalue_vec[0]));
@@ -412,25 +409,25 @@ SysYAstVisitor::visitInitVarDef(SysYParser::InitVarDefContext *ctx) {
 
   /* create left value */
   auto left_id = ftable.get_func(cur_func_name)->alloc_ssa();
-  SSALeftValue lvalue(left_id, cur_type, ident_name, shape, init_vals);
+  VariableEntry entry(left_id, cur_type, ident_name, shape, init_vals);
 
   /* add intialize ir instructions */
   if (cur_func_name == "_init") {
     // 在函数外里就必须是常量，并创建 GlobalDecl IR
-    lvalue.set_global();
-    cur_bb->push_ir_instr(new GlobalDeclIR(lvalue));
+    entry.set_global();
+    cur_bb->push_ir_instr(new GlobalDeclIR(entry));
   } else {
     // 在函数体里就创建 Alloca IR，并进行值初始化
     vector<IRInstr *> ir_vec;
-    generate_lvalue_init_ir(lvalue, init_vals, &ir_vec);
-    cur_bb->push_ir_instr(new AllocaIR(lvalue));
+    generate_lvalue_init_ir(entry, init_vals, &ir_vec);
+    cur_bb->push_ir_instr(new AllocaIR(entry));
     cur_bb->push_ir_instrs(ir_vec);
     // TODO: optimize array value store, if all initilize value are constant,
     // bitcast as i8* and memcopy from const array, else.
   }
 
   /* add variable entry to variable table */
-  cur_vtable->append(ident_name, VariableEntry(lvalue));
+  cur_vtable->append(ident_name, entry);
   value_mode = ValueMode::Normal;
   spdlog::debug("leaveInitVarDef");
   return nullptr;
@@ -459,7 +456,7 @@ antlrcpp::Any SysYAstVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
     throw DuplicateGlobalName(func_name);
   }
   spdlog::debug("Function Name: " + func_name);
-  Type return_type(ctx->funcType()->getText());
+  auto return_type = TYPE::parse_type(ctx->funcType()->getText());
   auto func_entry = make_shared<FunctionEntry>(func_name, return_type);
   ftable.register_func(func_name, func_entry);
   has_return = false;
@@ -476,18 +473,18 @@ antlrcpp::Any SysYAstVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
     func_entry->set_arg_list(args);
     for (auto arg : args) {
       auto id = func_entry->alloc_ssa();
-      auto lvalue = SSALeftValue(id, arg.second.lvalue.type);
+      auto lvalue = SSALeftValue(id, arg.second.type);
       cur_bb->push_ir_instr(new AllocaIR(lvalue));
-      auto rvalue = SSARightValue(arg.second.lvalue.id, arg.second.lvalue.type);
+      auto rvalue = SSARightValue(arg.second.id, arg.second.type);
       cur_bb->push_ir_instr(new StoreValueIR(lvalue, rvalue));
       // 更新参数在符号表的 ssa_id 为分配内存后左值 ssa_id
-      arg.second.lvalue.id = id;
+      arg.second.id = id;
       cur_vtable->append(arg.first, arg.second);
     }
   }
 
   // 分配返回值变量空间
-  if (return_type.get_type() != Type::VOID) {
+  if (return_type != Type::VOID) {
     auto ret_id = func_entry->alloc_ssa();
     SSALeftValue lvalue = SSALeftValue(ret_id, return_type);
     ret_value_opt = lvalue;
@@ -501,9 +498,8 @@ antlrcpp::Any SysYAstVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
   // 添加返回语句
   if (ret_bb_opt != std::nullopt) {
     auto ret_bb = ret_bb_opt.value();
-    if (return_type.get_type() != Type::VOID) {
-      auto ret_rvalue =
-          SSARightValue(func_entry->alloc_ssa(), return_type.get_type());
+    if (return_type != Type::VOID) {
+      auto ret_rvalue = SSARightValue(func_entry->alloc_ssa(), return_type);
       ret_bb->push_ir_instr(new LoadIR(ret_rvalue, ret_value_opt.value()));
       ret_bb->push_ir_instr(new ReturnIR(ret_rvalue));
     } else {
@@ -543,7 +539,7 @@ SysYAstVisitor::visitFuncFParams(SysYParser::FuncFParamsContext *ctx) {
 antlrcpp::Any
 SysYAstVisitor::visitFuncFParam(SysYParser::FuncFParamContext *ctx) {
   spdlog::debug("visitFuncFParam");
-  Type type(ctx->bType()->getText());
+  auto type = TYPE::parse_type(ctx->bType()->accept(this).as<string>());
   string name = ctx->Identifier()->getText();
   auto cur_func = ftable.get_func(cur_func_name);
   vector<int32_t> shape;
@@ -551,14 +547,13 @@ SysYAstVisitor::visitFuncFParam(SysYParser::FuncFParamContext *ctx) {
     shape.emplace_back(1 << 16); // TODO: change to real infinity
   }
   value_mode = ValueMode::Const;
-  cur_type.set_type(type.get_type());
+  cur_type = type;
   for (auto i : ctx->constExp()) {
     auto dim = i->accept(this).as<int32_t>();
     shape.emplace_back(dim);
   }
   value_mode = ValueMode::Normal;
-  VariableEntry entry(
-      SSALeftValue(cur_func->alloc_ssa(), type, name, shape, true));
+  SSALeftValue entry(cur_func->alloc_ssa(), type, name, shape, true);
   spdlog::debug("leaveFuncFParam");
   return pair<string, VariableEntry>{name, entry};
 }
@@ -733,7 +728,7 @@ SysYAstVisitor::visitReturnStmt(SysYParser::ReturnStmtContext *ctx) {
   auto cur_func = ftable.get_func(cur_func_name);
   has_return = true;
   if (ctx->exp()) {
-    if (cur_func->return_type.type == Type::VOID) {
+    if (cur_func->return_type == Type::VOID) {
       throw VoidFuncReturnValueUsed();
     } else {
       if (depth == 0) {
@@ -762,7 +757,7 @@ SysYAstVisitor::visitReturnStmt(SysYParser::ReturnStmtContext *ctx) {
       }
     }
   } else {
-    if (cur_func->return_type.type == Type::VOID) {
+    if (cur_func->return_type == Type::VOID) {
       if (depth == 0) {
         throw RuntimeError("return statement must be in a function");
       } else if (depth == 1) {
@@ -831,9 +826,9 @@ antlrcpp::Any SysYAstVisitor::visitLVal(SysYParser::LValContext *ctx) {
     // TODO: Array Value
     auto entry = cur_vtable->get_variable(res);
     if (entry) {
-      if (entry->lvalue.value.size()) {
+      if (entry->value.size()) {
         spdlog::debug("leaveLVal_0");
-        return entry->lvalue.value.back().value.value();
+        return entry->value.back().value.value();
       } else {
         throw RuntimeError("No Const Init Variable Found");
       }
@@ -842,12 +837,12 @@ antlrcpp::Any SysYAstVisitor::visitLVal(SysYParser::LValContext *ctx) {
     }
   } else {
     auto entry = cur_vtable->get_variable(res);
-    if (entry) {
-      auto lvalue = entry.value().lvalue;
+    if (entry.has_value()) {
+      auto lvalue = entry.value();
       auto cur_func = ftable.get_func(cur_func_name);
       auto type = lvalue.get_type();
       for (auto i : indexs) {
-        auto new_shape = lvalue.shape();
+        auto new_shape = lvalue.get_shape();
         new_shape.erase(new_shape.begin());
         SSALeftValue new_lvalue(cur_func->alloc_ssa(), type, new_shape);
         cur_bb->push_ir_instr(
@@ -879,9 +874,9 @@ SysYAstVisitor::visitPrimaryExp2(SysYParser::PrimaryExp2Context *ctx) {
     auto cur_func = ftable.get_func(cur_func_name);
     // TODO find SSALeftValue by ctx.Identifier()
     SSALeftValue s1 = ctx->lVal()->accept(this).as<SSALeftValue>();
-    if (s1.shape().size()) {
+    if (s1.get_dimension()) {
       // address pointer
-      auto new_shape = s1.shape();
+      auto new_shape = s1.get_shape();
       new_shape.erase(new_shape.begin());
       SSALeftValue d1(ftable.get_func(cur_func_name)->alloc_ssa(), s1.type,
                       new_shape);
@@ -977,7 +972,7 @@ antlrcpp::Any SysYAstVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
       args = ctx->funcRParams()->accept(this).as<vector<SSARightValue>>();
       // todo: verify arg with func arg list
     }
-    if (callee_entry->return_type.type != Type::VOID) {
+    if (callee_entry->return_type != Type::VOID) {
       SSARightValue ret_rvalue(caller_entry->alloc_ssa(),
                                callee_entry->return_type);
       cur_bb->push_ir_instr(new CallFuncIR(func_name, ret_rvalue, args));
@@ -1306,16 +1301,16 @@ antlrcpp::Any SysYAstVisitor::visitLOr2(SysYParser::LOr2Context *ctx) {
 
 antlrcpp::Any SysYAstVisitor::visitConstExp(SysYParser::ConstExpContext *ctx) {
   spdlog::debug("visitConstExp");
-  if (cur_type.type == Type::I32) {
+  if (cur_type == Type::I32) {
     int32_t compile_value = ctx->addExp()->accept(this);
     spdlog::debug("leaveConstExp_0");
     return compile_value;
-  } else if (cur_type.type == Type::FLOAT) {
+  } else if (cur_type == Type::FLOAT) {
     float compile_value = ctx->addExp()->accept(this);
     spdlog::debug("leaveConstExp_1");
     return compile_value;
   } else {
-    spdlog::debug("curr_type: " + cur_type.get_name());
+    spdlog::debug("curr_type: " + get_name(cur_type));
     throw RuntimeError("visitConstExp match error exp type");
   }
 }

@@ -2,6 +2,7 @@
 
 #include "SysYBaseVisitor.h"
 #include "common/errors.hpp"
+#include "middle/Type.hpp"
 #include "middle/BasicBlock.hpp"
 #include "middle/IR.hpp"
 #include "middle/SSA.hpp"
@@ -10,6 +11,8 @@
 #include <cstddef>
 
 using std::vector;
+
+using namespace::TYPE;
 
 class SysYAstVisitor : public SysYBaseVisitor {
   enum ValueMode { Normal, Const } value_mode = Normal;

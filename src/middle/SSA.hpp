@@ -14,6 +14,8 @@ using std::ostream;
 using std::string;
 using std::vector;
 
+using namespace ::TYPE;
+
 // 单一静态赋值变量
 struct SSAValue {
   int id = 0; // id == 0 说明没有分配 ssa_id 因为0号是第一个基本块的编号
@@ -43,11 +45,12 @@ struct SSARightValue : SSAValue {
 struct SSALeftValue : SSAValue {
 private:
   string name;
-  int32_t address = 0;
   bool is_arg = false;
   bool is_const_value = false;
   bool is_global_value = false;
-  vector<int32_t> dimen_list; // shape: size of each dimension
+  vector<int32_t> shape; // shape: size of each dimension
+
+  string type_recurrence(vector<int> shape, TYPE::Type type) const;
 public:
   optional<vector<SSARightValue>> init_value =
       std::nullopt; // float 或 int 都先强制类型转换为 int32_t 存储
@@ -56,8 +59,8 @@ public:
 
   SSALeftValue(int id, Type type) : SSAValue(id, type){};
 
-  SSALeftValue(int id, Type type, vector<int32_t> dimen_list)
-      : SSAValue(id, type), dimen_list(dimen_list){};
+  SSALeftValue(int id, Type type, vector<int32_t> shape)
+      : SSAValue(id, type), shape(shape){};
 
   SSALeftValue(int id, Type type, vector<SSARightValue> init_value)
       : SSAValue(id, type), init_value(init_value), value(init_value){};
@@ -80,42 +83,42 @@ public:
       : SSAValue(id, type), name(name), is_const_value(is_const_value),
         is_global_value(is_global_value){};
 
-  SSALeftValue(int id, Type type, string name, vector<int32_t> dimen_list)
-      : SSAValue(id, type), name(name), dimen_list(dimen_list){};
+  SSALeftValue(int id, Type type, string name, vector<int32_t> shape)
+      : SSAValue(id, type), name(name), shape(shape){};
 
-  SSALeftValue(int id, Type type, string name, vector<int32_t> dimen_list,
+  SSALeftValue(int id, Type type, string name, vector<int32_t> shape,
                bool is_arg)
-      : SSAValue(id, type), name(name), dimen_list(dimen_list),
-        is_arg(is_arg){};
+      : SSAValue(id, type), name(name), shape(shape), is_arg(is_arg){};
 
-  SSALeftValue(int id, Type type, string name, vector<int32_t> dimen_list,
+  SSALeftValue(int id, Type type, string name, vector<int32_t> shape,
                vector<SSARightValue> init_value)
-      : SSAValue(id, type), name(name), dimen_list(dimen_list),
-        init_value(init_value), value(init_value){};
+      : SSAValue(id, type), name(name), shape(shape), init_value(init_value),
+        value(init_value){};
 
-  SSALeftValue(int id, Type type, string name, vector<int32_t> dimen_list,
+  SSALeftValue(int id, Type type, string name, vector<int32_t> shape,
                bool is_const_value, bool is_global_value)
-      : SSAValue(id, type), name(name), dimen_list(dimen_list),
+      : SSAValue(id, type), name(name), shape(shape),
         is_const_value(is_const_value), is_global_value(is_global_value){};
 
-  SSALeftValue(int id, Type type, string name, vector<int32_t> dimen_list,
+  SSALeftValue(int id, Type type, string name, vector<int32_t> shape,
                vector<SSARightValue> init_value, bool is_const_value)
-      : SSAValue(id, type), name(name), dimen_list(dimen_list),
-        init_value(init_value), value(init_value),
-        is_const_value(is_const_value){};
+      : SSAValue(id, type), name(name), shape(shape), init_value(init_value),
+        value(init_value), is_const_value(is_const_value){};
 
-  SSALeftValue(int id, Type type, string name, vector<int32_t> dimen_list,
+  SSALeftValue(int id, Type type, string name, vector<int32_t> shape,
                vector<SSARightValue> init_value, bool is_const_value,
                bool is_global_value)
-      : SSAValue(id, type), name(name), dimen_list(dimen_list),
-        init_value(init_value), value(init_value),
-        is_const_value(is_const_value), is_global_value(is_global_value){};
+      : SSAValue(id, type), name(name), shape(shape), init_value(init_value),
+        value(init_value), is_const_value(is_const_value),
+        is_global_value(is_global_value){};
 
   void set_init_value(vector<SSARightValue> _init_value) {
     init_value = _init_value;
     value = _init_value;
   }
-  vector<int32_t> shape() const { return dimen_list; }
+  vector<int32_t> get_shape() const { return shape; }
+  int get_dimension() const { return shape.size(); }
+  string get_type_str() const;
   string get_name() const { return name; }
   void set_global() { is_global_value = true; }
   bool is_global() const { return is_global_value; }

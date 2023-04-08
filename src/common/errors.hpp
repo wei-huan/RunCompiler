@@ -110,6 +110,11 @@ class InvalidLiteral : public SyntaxError {
   InvalidLiteral(std::string msg) : SyntaxError(std::move(msg)) {}
 };
 
+class UnrecognizedType : public SyntaxError {
+ public:
+  UnrecognizedType(std::string msg) : SyntaxError(std::move(msg)) {}
+};
+
 class RuntimeError : public std::runtime_error {
  public:
   using std::runtime_error::runtime_error;

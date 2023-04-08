@@ -138,12 +138,12 @@ int main(int argc, char *argv[]) {
     // remove unused function
     // remove dead basic block pass
     // remove dead code in basic block pass
-    /* 机器相关优化 */
-    /* 汇编代码生成 */
-    IRVisitor ir_visitor;
-    ir_visitor.visit_ir(&astVisitor.ftable);
-    /* 汇编代码输出 */
     if (need_asm) {
+      /* 机器相关优化 */
+      /* 汇编代码生成 */
+      IRVisitor ir_visitor;
+      ir_visitor.visit_ir(&astVisitor.ftable);
+      /* 汇编代码输出 */
       spdlog::info("生成 " + args[1] + " 的 ARM 汇编到 " + args[2]);
       // redirect stdout to output file
       auto fp = std::freopen(args[2].c_str(), "w+", stdout);

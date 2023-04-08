@@ -3,7 +3,7 @@
 string array_shape_string(vector<int32_t> shape, Type type) {
   string shape_string = "";
   if (!shape.size()) {
-    shape_string += type.get_name();
+    shape_string += TYPE::get_name(type);
   } else {
     shape_string += "[";
     shape_string += std::to_string(*shape.begin());
@@ -35,7 +35,7 @@ string array_init_value_string(int high_dim, vector<int32_t> shape,
     for (int i = 1; i <= high_dim; i++) {
       SSARightValue value = *values.begin();
       values.erase(values.begin());
-      str += value.type.get_name();
+      str += TYPE::get_name(value.type);
       str += " ";
       str += std::to_string(value.value.value());
       if (i < high_dim) {
@@ -59,17 +59,17 @@ string GlobalDeclIR::gen_ir_code() const {
   }
   auto var_copy = var.init_value;
   if (var_copy) {
-    code += array_init_value_string(1, var.shape(), var_copy.value());
+    code += array_init_value_string(1, var.get_shape(), var_copy.value());
   } else {
-    code += array_shape_string(var.shape(), var.type);
+    code += array_shape_string(var.get_shape(), var.type);
     code += " ";
-    if (var.shape().size()) {
+    if (var.get_dimension()) {
       code += "zeroinitializer";
     } else {
       code += "0";
     }
   }
-  if (var.shape().size()) {
+  if (var.get_dimension()) {
     code += ", align 16"; // align
   } else {
     code += ", align 4"; // align
@@ -84,8 +84,8 @@ string AllocaIR::gen_ir_code() const {
   code += " = ";                  // assign
   code += get_name(oper);         // opcode
   code += " ";
-  code += array_shape_string(var.shape(), var.type);
-  if (var.shape().size()) {
+  code += array_shape_string(var.get_shape(), var.type);
+  if (var.get_dimension()) {
     code += ", align 16"; // align
   } else {
     code += ", align 4"; // align
@@ -100,8 +100,11 @@ string LoadIR::gen_ir_code() const {
   code += " = ";                 // assign
   code += get_name(oper);        // opcode
   code += " ";
-  code += d1.type.get_name(); // type
-  code += ", ptr ";           // ptr aka left value
+  code += TYPE::get_name(d1.type); // type
+  code += ", ";
+  code += s1.get_type_str(); // type
+  // code += TYPE::get_name(s1.type); // type
+  code += "* ";
   if (s1.is_global()) {
     code += "@";
     code += s1.get_name();
@@ -117,8 +120,8 @@ string ReturnIR::gen_ir_code() const {
   string code = "";
   code += get_name(oper); // opcode
   code += " ";
-  if (ret) {
-    code += ret.value().type.get_name(); // type
+  if (ret.has_value()) {
+    code += TYPE::get_name(ret.value().type); // type
     code += " ";
     if (ret.value().id) {
       code += "%";
@@ -134,15 +137,18 @@ string StoreValueIR::gen_ir_code() const {
   string code = "";
   code += get_name(oper); // opcode
   code += " ";
-  code += lvalue.type.get_name(); // type
+  code += TYPE::get_name(lvalue.type); // type
   code += " ";
-  if (rvalue.value) {
+  if (rvalue.value.has_value()) {
     code += std::to_string(rvalue.value.value()); // value
   } else {
     code += "%";
     code += std::to_string(rvalue.id); // value
   }
-  code += ", ptr ";
+  code += ", ";
+  // code += TYPE::get_name(lvalue.type); // type
+  code += lvalue.get_type_str(); // type
+  code += "* ";
   if (lvalue.is_global()) {
     code += "@";
     code += lvalue.get_name();
@@ -161,8 +167,8 @@ string BinaryCalcuIR::gen_ir_code() const {
   code += " = ";                 // assign
   code += get_name(oper);        // opcode
   code += " ";
-  code += "nsw ";             // poison sign
-  code += d1.type.get_name(); // type
+  code += "nsw ";                  // poison sign
+  code += TYPE::get_name(d1.type); // type
   code += " ";
   if (s1.id) {
     code += "%";                   // local symbol
@@ -178,71 +184,14 @@ string BinaryCalcuIR::gen_ir_code() const {
   return code;
 }
 
-// string DivIR::gen_ir_code() const {
-//     string code = "";
-//     code += "%";                    // local symbol
-//     code += std::to_string(d1.id);  // name
-//     code += " = ";                  // assign
-//     code += "sdiv ";                // opcode
-//     // type
-//     if (d1.type == I32) {
-//         code += "i32 ";
-//     } else {
-//         code += "float ";
-//     }
-//     code += "%";                    // local symbol
-//     code += std::to_string(s1.id);  // name
-//     code += ", %";                  // local symbol
-//     code += std::to_string(s2.id);  // name
-//     return code;
-// }
-
-// string ModIR::gen_ir_code() const {
-//     string code = "";
-//     code += "%";                    // local symbol
-//     code += std::to_string(d1.id);  // name
-//     code += " = ";                  // assign
-//     code += "srem ";                // opcode
-//     // type
-//     if (d1.type == I32) {
-//         code += "i32 ";
-//     } else {
-//         code += "float ";
-//     }
-//     code += "%";                    // local symbol
-//     code += std::to_string(s1.id);  // name
-//     code += ", %";                  // local symbol
-//     code += std::to_string(s2.id);  // name
-//     return code;
-// }
-
-// string NotIR::gen_ir_code() const {
-//     string code = "";
-//     code += "%";                    // local symbol
-//     code += std::to_string(d1.id);  // name
-//     code += " = ";                  // assign
-//     code += "sub";                  // operator
-//     code += " nsw ";                // poison sign
-//     code += d1.type.get_name();     // type
-//     code += " ";
-//     code += "0";
-//     code += ", ";
-//     if (s1.id) {
-//         code += "%";                    // local symbol
-//         code += std::to_string(s1.id);  // name
-//     } else
-//         code += std::to_string(s1.value.value());  // value
-//     return code;
-// }
-
 string NegIR::gen_ir_code() const {
   string code = "";
-  code += "%";                   // local symbol
-  code += std::to_string(d1.id); // name
-  code += " = ";                 // assign
-  code += "sub ";                // operator
-  code += "nsw ";                // poison sign
-  code += d1.type.get_name();    // type
+  code += "%";                     // local symbol
+  code += std::to_string(d1.id);   // name
+  code += " = ";                   // assign
+  code += "sub ";                  // operator
+  code += "nsw ";                  // poison sign
+  code += TYPE::get_name(d1.type); // type
   code += " ";
   code += "0";
   code += ", ";
@@ -306,7 +255,7 @@ string CallFuncIR::gen_ir_code() const {
   }
   code += get_name(oper); // opcode
   code += " ";
-  code += ret.type.get_name(); // type
+  code += TYPE::get_name(ret.type); // type
   code += " ";
   code += "@";       // global symbol
   code += func_name; // func name
@@ -316,11 +265,11 @@ string CallFuncIR::gen_ir_code() const {
     auto i = 0;
     for (auto entry : args) {
       i++;
-      code += entry.type.get_name(); // type
+      code += TYPE::get_name(entry.type); // type
       code += " ";
       if (entry.id) {
-      code += "%";                      // local symbol
-      code += std::to_string(entry.id); // name
+        code += "%";                      // local symbol
+        code += std::to_string(entry.id); // name
       } else
         code += std::to_string(entry.value.value()); // value
       if (i < size) {
@@ -339,8 +288,11 @@ string GEPIR::gen_ir_code() const {
   code += " = ";                 // assign
   code += get_name(oper);        // opcode
   code += " ";
-  code += array_shape_string(s1.shape(), s1.type); // shape
-  code += ", ptr ";                                // ptr
+  code += array_shape_string(s1.get_shape(), s1.type); // shape
+  code += ", ";
+  // code += TYPE::get_name(s1.type); // type
+  code += s1.get_type_str(); // type
+  code += "* ";
   if (s1.is_global()) {
     code += "@";
     code += s1.get_name();

@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Instruction.hpp"
 #include "IRVisitor.hpp"
 
