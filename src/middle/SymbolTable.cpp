@@ -88,7 +88,7 @@ void FunctionEntry::visit_basic_blocks() {
   }
 }
 
-void FunctionEntry::gen_code() {
+void FunctionEntry::gen_ir_code() {
   string func_def = "define ";
   func_def += "i32 ";
   func_def += "@";
@@ -129,7 +129,7 @@ void FunctionTable::traverse() {
   }
 };
 
-void FunctionTable::gen_code() {
+void FunctionTable::gen_ir_code() {
   for (auto &[key, val] : ftable) {
     if (key == "_init") {
       for (auto bb : val->basic_blocks) {
@@ -138,7 +138,7 @@ void FunctionTable::gen_code() {
       std::cout << std::endl;
     } else {
       if (!val->is_lib_func) {
-        val->gen_code();
+        val->gen_ir_code();
         std::cout << std::endl;
       }
     }

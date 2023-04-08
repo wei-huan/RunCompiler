@@ -46,7 +46,7 @@ string array_init_value_string(int high_dim, vector<int32_t> shape,
   return str;
 }
 
-string GlobalDeclIR::gen_code() const {
+string GlobalDeclIR::gen_ir_code() const {
   string code = "";
   code += "@";            // global symbol
   code += var.get_name(); // name
@@ -77,7 +77,7 @@ string GlobalDeclIR::gen_code() const {
   return code;
 }
 
-string AllocaIR::gen_code() const {
+string AllocaIR::gen_ir_code() const {
   string code = "";
   code += "%";                    // local symbol
   code += std::to_string(var.id); // id
@@ -93,7 +93,7 @@ string AllocaIR::gen_code() const {
   return code;
 }
 
-string LoadIR::gen_code() const {
+string LoadIR::gen_ir_code() const {
   string code = "";
   code += "%";                   // local symbol
   code += std::to_string(d1.id); // name
@@ -113,7 +113,7 @@ string LoadIR::gen_code() const {
   return code;
 }
 
-string ReturnIR::gen_code() const {
+string ReturnIR::gen_ir_code() const {
   string code = "";
   code += get_name(oper); // opcode
   code += " ";
@@ -130,7 +130,7 @@ string ReturnIR::gen_code() const {
   return code;
 }
 
-string StoreValueIR::gen_code() const {
+string StoreValueIR::gen_ir_code() const {
   string code = "";
   code += get_name(oper); // opcode
   code += " ";
@@ -154,7 +154,7 @@ string StoreValueIR::gen_code() const {
   return code;
 }
 
-string BinaryCalcuIR::gen_code() const {
+string BinaryCalcuIR::gen_ir_code() const {
   string code = "";
   code += "%";                   // local symbol
   code += std::to_string(d1.id); // name
@@ -178,7 +178,7 @@ string BinaryCalcuIR::gen_code() const {
   return code;
 }
 
-// string DivIR::gen_code() const {
+// string DivIR::gen_ir_code() const {
 //     string code = "";
 //     code += "%";                    // local symbol
 //     code += std::to_string(d1.id);  // name
@@ -197,7 +197,7 @@ string BinaryCalcuIR::gen_code() const {
 //     return code;
 // }
 
-// string ModIR::gen_code() const {
+// string ModIR::gen_ir_code() const {
 //     string code = "";
 //     code += "%";                    // local symbol
 //     code += std::to_string(d1.id);  // name
@@ -216,7 +216,7 @@ string BinaryCalcuIR::gen_code() const {
 //     return code;
 // }
 
-// string NotIR::gen_code() const {
+// string NotIR::gen_ir_code() const {
 //     string code = "";
 //     code += "%";                    // local symbol
 //     code += std::to_string(d1.id);  // name
@@ -235,7 +235,7 @@ string BinaryCalcuIR::gen_code() const {
 //     return code;
 // }
 
-string NegIR::gen_code() const {
+string NegIR::gen_ir_code() const {
   string code = "";
   code += "%";                   // local symbol
   code += std::to_string(d1.id); // name
@@ -254,7 +254,7 @@ string NegIR::gen_code() const {
   return code;
 }
 
-string ZExtIR::gen_code() const {
+string ZExtIR::gen_ir_code() const {
   string code = "";
   code += "%";                   // local symbol
   code += std::to_string(d1.id); // name
@@ -273,7 +273,7 @@ string ZExtIR::gen_code() const {
   return code;
 }
 
-string IcmpIR::gen_code() const {
+string IcmpIR::gen_ir_code() const {
   string code = "";
   code += "%";                   // local symbol
   code += std::to_string(d1.id); // name
@@ -297,7 +297,7 @@ string IcmpIR::gen_code() const {
   return code;
 }
 
-string CallFuncIR::gen_code() const {
+string CallFuncIR::gen_ir_code() const {
   string code = "";
   if (ret.id > 0) { // function have return value
     code += "%";    // ret ssa
@@ -332,7 +332,7 @@ string CallFuncIR::gen_code() const {
   return code;
 }
 
-string GEPIR::gen_code() const {
+string GEPIR::gen_ir_code() const {
   string code = "";
   code += "%";                   // local symbol
   code += std::to_string(d1.id); // name
@@ -365,7 +365,7 @@ string GEPIR::gen_code() const {
   return code;
 }
 
-string BranchIR::gen_code() const {
+string BranchIR::gen_ir_code() const {
   string code = "";
   code += get_name(oper); // opcode
   code += " ";

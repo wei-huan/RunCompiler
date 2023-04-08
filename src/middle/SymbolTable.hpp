@@ -87,7 +87,7 @@ struct FunctionEntry {
   shared_ptr<BasicBlock> alloc_bb(string alias);
   int alloc_ssa() { return cur_ssa_id++; }
   void visit_basic_blocks();
-  void gen_code();
+  void gen_ir_code();
 };
 
 struct FunctionTable {
@@ -100,5 +100,5 @@ struct FunctionTable {
   shared_ptr<FunctionEntry> get_func(string name) { return ftable[name]; }
   bool is_exist(string name) { return (ftable.count(name) > 0); }
   void traverse();
-  void gen_code();
+  void gen_ir_code();
 };

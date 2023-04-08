@@ -50,7 +50,7 @@ struct IRInstr {
     return names[(int)oper];
   }
   OPERATOR get_type() { return oper; }
-  virtual string gen_code() const = 0;
+  virtual string gen_ir_code() const = 0;
 };
 
 struct GlobalDeclIR : IRInstr {
@@ -58,26 +58,26 @@ struct GlobalDeclIR : IRInstr {
   GlobalDeclIR(SSALeftValue var) : var(var), IRInstr(GLOBAL) {
     assert(var.is_global());
   }
-  virtual string gen_code() const;
+  virtual string gen_ir_code() const;
 };
 
 struct AllocaIR : IRInstr {
   SSALeftValue var;
   AllocaIR(SSALeftValue var) : var(var), IRInstr(ALLOCA) {}
-  virtual string gen_code() const;
+  virtual string gen_ir_code() const;
 };
 
 struct LoadIR : IRInstr {
   SSALeftValue s1;
   SSARightValue d1;
   LoadIR(SSARightValue d1, SSALeftValue s1) : d1(d1), s1(s1), IRInstr(LOAD) {}
-  virtual string gen_code() const;
+  virtual string gen_ir_code() const;
 };
 
 struct ReturnIR : IRInstr {
   optional<SSARightValue> ret;
   ReturnIR(optional<SSARightValue> ret) : ret(ret), IRInstr(RET) {}
-  virtual string gen_code() const;
+  virtual string gen_ir_code() const;
 };
 
 struct StoreValueIR : IRInstr {
@@ -85,16 +85,8 @@ struct StoreValueIR : IRInstr {
   SSALeftValue lvalue;
   StoreValueIR(SSALeftValue lvalue, SSARightValue rvalue)
       : lvalue(lvalue), rvalue(rvalue), IRInstr(STORE) {}
-  virtual string gen_code() const;
+  virtual string gen_ir_code() const;
 };
-
-// struct StoreLValueIR : IRInstr {
-//   SSALeftValue lvalue;
-//   SSALeftValue variable;
-//   StoreLValueIR(SSALeftValue variable, SSALeftValue lvalue)
-//       : variable(variable), lvalue(lvalue), IRInstr(STORE) {}
-//   virtual string gen_code() const;
-// };
 
 struct CalcuIR : IRInstr {
   SSARightValue d1;
@@ -105,22 +97,22 @@ struct UnaryCalcuIR : CalcuIR {
   SSARightValue s1;
   UnaryCalcuIR(SSARightValue d1, SSARightValue s1, OPERATOR oper)
       : CalcuIR(d1, oper), s1(s1){};
-  virtual string gen_code() const = 0;
+  virtual string gen_ir_code() const = 0;
 };
 
 struct NegIR : UnaryCalcuIR {
   NegIR(SSARightValue d1, SSARightValue s1) : UnaryCalcuIR(d1, s1, NEG) {}
-  virtual string gen_code() const override;
+  virtual string gen_ir_code() const override;
 };
 
 struct ZExtIR : UnaryCalcuIR {
   ZExtIR(SSARightValue d1, SSARightValue s1) : UnaryCalcuIR(d1, s1, ZEXT) {}
-  virtual string gen_code() const override;
+  virtual string gen_ir_code() const override;
 };
 
 // struct NotIR : UnaryCalcuIR {
 //     NotIR(SSAValue d1, SSAValue s1) : UnaryCalcuIR(d1, s1, NOT) {}
-//     virtual string gen_code() const override;
+//     virtual string gen_ir_code() const override;
 // };
 
 struct BinaryCalcuIR : CalcuIR {
@@ -129,7 +121,7 @@ struct BinaryCalcuIR : CalcuIR {
   BinaryCalcuIR(SSARightValue d1, SSARightValue s1, SSARightValue s2,
                 OPERATOR oper)
       : CalcuIR(d1, oper), s1(s1), s2(s2) {}
-  virtual string gen_code() const override;
+  virtual string gen_ir_code() const override;
 };
 
 struct AddIR : BinaryCalcuIR {
@@ -195,7 +187,7 @@ struct IcmpIR : BinaryCalcuIR {
   IcmpIR(SSARightValue d1, SSARightValue s1, SSARightValue s2,
          IcmpType icmp_type)
       : BinaryCalcuIR(d1, s1, s2, ICMP), icmp_type(icmp_type) {}
-  virtual string gen_code() const;
+  virtual string gen_ir_code() const;
 };
 
 struct CallFuncIR : IRInstr {
@@ -204,7 +196,7 @@ struct CallFuncIR : IRInstr {
   vector<SSARightValue> args;
   CallFuncIR(string func_name, SSARightValue ret, vector<SSARightValue> args)
       : func_name(func_name), ret(ret), args(args), IRInstr(CALL) {}
-  virtual string gen_code() const;
+  virtual string gen_ir_code() const;
 };
 
 // getelementptr
@@ -216,7 +208,7 @@ struct GEPIR : IRInstr {
   GEPIR(SSALeftValue d1, SSALeftValue s1, SSARightValue index0,
         SSARightValue index1)
       : IRInstr(GEP), d1(d1), s1(s1), index0(index0), index1(index1){};
-  virtual string gen_code() const override;
+  virtual string gen_ir_code() const override;
 };
 
 // struct MemSetIR : IRInstr {
@@ -225,7 +217,7 @@ struct GEPIR : IRInstr {
 //     SSALeftValue d1;
 //     MemSetIR(SSALeftValue d1, int32_t len, int32_t value)
 //         : IRInstr(MEMSET), d1(d1), len(len), value(value){};
-//     virtual string gen_code() const override;
+//     virtual string gen_ir_code() const override;
 // };
 
 // struct MemCopyIR : IRInstr {
@@ -234,7 +226,7 @@ struct GEPIR : IRInstr {
 //     SSALeftValue d1;
 //     MemCopyIR(SSALeftValue d1, SSALeftValue s1, int32_t len)
 //         : IRInstr(MEMCOPY), d1(d1), s1(s1), len(len){};
-//     virtual string gen_code() const override;
+//     virtual string gen_ir_code() const override;
 // };
 
 struct BranchIR : IRInstr {
@@ -244,7 +236,7 @@ struct BranchIR : IRInstr {
   BranchIR(int32_t label1) : IRInstr(BRANCH), label1(label1){};
   BranchIR(SSARightValue cond, int32_t label1, int32_t label2)
       : IRInstr(BRANCH), cond(cond), label1(label1), label2(label2){};
-  virtual string gen_code() const override;
+  virtual string gen_ir_code() const override;
 };
 
 // struct PhiIR : IRInstr {
@@ -257,5 +249,5 @@ struct BranchIR : IRInstr {
 //     prev_label1, int32_t prev_label2)
 //         : IRInstr(BRANCH), d1(d1), s1(s1), s2(s2), prev_label1(prev_label1),
 //         prev_label2(prev_label2){};
-//     virtual string gen_code() const override;
+//     virtual string gen_ir_code() const override;
 // };

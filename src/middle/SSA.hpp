@@ -21,10 +21,12 @@ struct SSAValue {
   SSAValue(Type type) : type(type){};
   SSAValue(int id, Type type) : id(id), type(type){};
   Type get_type() { return type; }
+  int get_id() { return id; }
 };
 
 // 单一静态赋值右值, 即数据值变量
-// 如果 ssa_id == 0 说明是以值形式存在的右值, 否则是以寄存器临时变量存在
+// 如果 ssa_id == 0 说明是以值形式存在的右值, 否则是以寄存器临时变量存在,
+// 即立即数
 struct SSARightValue : SSAValue {
   optional<int32_t> value =
       std::nullopt; // float 或 int 都先强制类型转换为 int32_t 存储
@@ -33,6 +35,8 @@ struct SSARightValue : SSAValue {
   SSARightValue(Type type, int32_t value) : SSAValue(0, type), value(value){};
   SSARightValue(int id, Type type, int32_t value)
       : SSAValue(id, type), value(value){};
+  int32_t get_value() { return value.value(); }
+  bool is_immediate() { return id == 0; }
 };
 
 // 单一静态赋值左值, 即内存值变量

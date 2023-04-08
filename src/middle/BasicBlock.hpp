@@ -23,10 +23,10 @@ private:
   string alias;
   bool have_exit = false;
   vector<int> prev_bb; // info about control flow
-  vector<shared_ptr<IRInstr>> instrs;
 
 public:
   int label; // label = 0 for entry basic block
+  vector<shared_ptr<IRInstr>> instrs;
   BasicBlock(int label) : label(label){};
   BasicBlock(int label, string alias) : label(label), alias(alias){};
   // append a new IR instruction to the basic block

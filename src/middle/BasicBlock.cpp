@@ -34,7 +34,7 @@ void BasicBlock::add_prev_bb(int prev_label) {
 
 void BasicBlock::print_ir_code() {
   for (auto const &i : instrs) {
-    auto str = i->gen_code();
+    auto str = i->gen_ir_code();
     std::cout << "  " << str << std::endl;
   }
 }

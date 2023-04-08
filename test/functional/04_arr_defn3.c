@@ -1,4 +1,4 @@
-#include "sylib.h"
+// #include "sylib.h"
 
 //test array define
 int main(){
