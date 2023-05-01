@@ -2,9 +2,10 @@
 #include "spdlog/spdlog.h"
 #include <string>
 
-void BasicBlock::push_ir_instr(IRInstr* instruction) {
+void BasicBlock::push_ir_instr(int id, IRInstr *instruction) {
   // 检查基本块是否已经有出口了
-  if (instruction->oper == IRInstr::BRANCH || instruction->oper == IRInstr::RET) {
+  if (instruction->oper == IRInstr::BRANCH ||
+      instruction->oper == IRInstr::RET) {
     if (have_exit == true) {
       throw RuntimeError("basic block " + std::to_string(label) +
                          " already have exit");
@@ -12,13 +13,7 @@ void BasicBlock::push_ir_instr(IRInstr* instruction) {
       have_exit = true;
     }
   }
-  instrs.emplace_back(instruction);
-}
-
-void BasicBlock::push_ir_instrs(vector<IRInstr*> instructions) {
-  for (auto instruction : instructions) {
-    push_ir_instr(instruction);
-  }
+  instr_map[id] = std::shared_ptr<IRInstr>(instruction);
 }
 
 void BasicBlock::add_prev_bb(int prev_label) {
@@ -33,8 +28,8 @@ void BasicBlock::add_prev_bb(int prev_label) {
 }
 
 void BasicBlock::print_ir_code() {
-  for (auto const &i : instrs) {
-    auto str = i->gen_ir_code();
-    std::cout << "  " << str << std::endl;
+  for (auto const &[ir_id, ir] : instr_map) {
+    auto str = ir->gen_ir_code();
+    std::cout << ir_id << ":  " << str << std::endl;
   }
 }

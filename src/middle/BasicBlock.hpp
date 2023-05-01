@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include <map>
 
 #include "common/errors.hpp"
 #include "middle/IR.hpp"
@@ -23,16 +24,16 @@ private:
   string alias;
   bool have_exit = false;
   vector<int> prev_bb; // info about control flow
+  
 
 public:
   int label; // label = 0 for entry basic block
-  vector<shared_ptr<IRInstr>> instrs;
+  // vector<shared_ptr<IRInstr>> instrs;
+  std::map<int, shared_ptr<IRInstr>> instr_map;
   BasicBlock(int label) : label(label){};
   BasicBlock(int label, string alias) : label(label), alias(alias){};
   // append a new IR instruction to the basic block
-  void push_ir_instr(IRInstr *instruction);
-  // append a set of IR instructions to the basic block
-  void push_ir_instrs(vector<IRInstr *> instructions);
+  void push_ir_instr(int id, IRInstr *instruction);
   // add a previous basic block link to the basic block
   void add_prev_bb(int prev_label);
   string get_alias() { return alias; }
@@ -41,8 +42,8 @@ public:
   bool is_have_exit() { return have_exit; }
   vector<int> get_prev_bb() { return prev_bb; }
   optional<shared_ptr<IRInstr>> last_instr() {
-    if (instrs.size()) {
-      return instrs.back();
+    if (instr_map.size()) {
+      return instr_map.rbegin()->second;
     } else {
       return std::nullopt;
     }

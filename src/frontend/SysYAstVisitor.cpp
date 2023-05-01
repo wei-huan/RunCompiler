@@ -190,13 +190,15 @@ antlrcpp::Any SysYAstVisitor::visitConstDef(SysYParser::ConstDefContext *ctx) {
   if (cur_func_name == "_init") {
     // declare variable in global basic block
     entry.set_global();
-    cur_bb->push_ir_instr(new GlobalDeclIR(entry));
+    ftable.get_func(cur_func_name)->push_instr(cur_bb, new GlobalDeclIR(entry));
   } else {
     // allocate space and initialize in function
     vector<IRInstr *> ir_vec;
     generate_lvalue_init_ir(entry, rvalue_vec, &ir_vec);
-    cur_bb->push_ir_instr(new AllocaIR(entry));
-    cur_bb->push_ir_instrs(ir_vec);
+    ftable.get_func(cur_func_name)->push_instr(cur_bb, new AllocaIR(entry));
+    for (auto ir : ir_vec) {
+      ftable.get_func(cur_func_name)->push_instr(cur_bb, ir);
+    }
   }
 
   /* add variable entry to variable table */
@@ -262,9 +264,9 @@ SysYAstVisitor::visitUninitVarDef(SysYParser::UninitVarDefContext *ctx) {
   }
   // 在函数体里就创建 Alloca IR
   if (cur_func_name != "_init") {
-    cur_bb->push_ir_instr(new AllocaIR(entry));
+    ftable.get_func(cur_func_name)->push_instr(cur_bb, new AllocaIR(entry));
   } else { // 在函数外面就创建 GlobalDecl IR
-    cur_bb->push_ir_instr(new GlobalDeclIR(entry));
+    ftable.get_func(cur_func_name)->push_instr(cur_bb, new GlobalDeclIR(entry));
   }
   cur_vtable->append(ident_name, entry);
   spdlog::debug("leaveUninitVarDef");
@@ -415,13 +417,15 @@ SysYAstVisitor::visitInitVarDef(SysYParser::InitVarDefContext *ctx) {
   if (cur_func_name == "_init") {
     // 在函数外里就必须是常量，并创建 GlobalDecl IR
     entry.set_global();
-    cur_bb->push_ir_instr(new GlobalDeclIR(entry));
+    ftable.get_func(cur_func_name)->push_instr(cur_bb, new GlobalDeclIR(entry));
   } else {
     // 在函数体里就创建 Alloca IR，并进行值初始化
     vector<IRInstr *> ir_vec;
     generate_lvalue_init_ir(entry, init_vals, &ir_vec);
-    cur_bb->push_ir_instr(new AllocaIR(entry));
-    cur_bb->push_ir_instrs(ir_vec);
+    ftable.get_func(cur_func_name)->push_instr(cur_bb, new AllocaIR(entry));
+    for (auto ir : ir_vec) {
+      ftable.get_func(cur_func_name)->push_instr(cur_bb, ir);
+    }
     // TODO: optimize array value store, if all initilize value are constant,
     // bitcast as i8* and memcopy from const array, else.
   }
@@ -464,7 +468,7 @@ antlrcpp::Any SysYAstVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
   cur_vtable = cur_vtable->new_ctable();
   func_entry->set_vtable(cur_vtable);
   // 进入 Block 前创建新的 Basic Block
-  cur_bb = func_entry->alloc_bb("entry");
+  cur_bb = func_entry->alloc_entry_bb();
   // 解析参数
   if (ctx->funcFParams()) {
     auto args = ctx->funcFParams()
@@ -474,9 +478,10 @@ antlrcpp::Any SysYAstVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
     for (auto arg : args) {
       auto id = func_entry->alloc_ssa();
       auto lvalue = SSALeftValue(id, arg.second.type);
-      cur_bb->push_ir_instr(new AllocaIR(lvalue));
+      ftable.get_func(cur_func_name)->push_instr(cur_bb, new AllocaIR(lvalue));
       auto rvalue = SSARightValue(arg.second.id, arg.second.type);
-      cur_bb->push_ir_instr(new StoreValueIR(lvalue, rvalue));
+      ftable.get_func(cur_func_name)
+          ->push_instr(cur_bb, new StoreValueIR(lvalue, rvalue));
       // 更新参数在符号表的 ssa_id 为分配内存后左值 ssa_id
       arg.second.id = id;
       cur_vtable->append(arg.first, arg.second);
@@ -488,9 +493,10 @@ antlrcpp::Any SysYAstVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
     auto ret_id = func_entry->alloc_ssa();
     SSALeftValue lvalue = SSALeftValue(ret_id, return_type);
     ret_value_opt = lvalue;
-    cur_bb->push_ir_instr(new AllocaIR(lvalue));
-    cur_bb->push_ir_instr(
-        new StoreValueIR(lvalue, SSARightValue(return_type, 0)));
+    ftable.get_func(cur_func_name)->push_instr(cur_bb, new AllocaIR(lvalue));
+    ftable.get_func(cur_func_name)
+        ->push_instr(cur_bb,
+                     new StoreValueIR(lvalue, SSARightValue(return_type, 0)));
   }
 
   ctx->block()->accept(this);
@@ -500,14 +506,18 @@ antlrcpp::Any SysYAstVisitor::visitFuncDef(SysYParser::FuncDefContext *ctx) {
     auto ret_bb = ret_bb_opt.value();
     if (return_type != Type::VOID) {
       auto ret_rvalue = SSARightValue(func_entry->alloc_ssa(), return_type);
-      ret_bb->push_ir_instr(new LoadIR(ret_rvalue, ret_value_opt.value()));
-      ret_bb->push_ir_instr(new ReturnIR(ret_rvalue));
+      ftable.get_func(cur_func_name)
+          ->push_instr(ret_bb, new LoadIR(ret_rvalue, ret_value_opt.value()));
+      ftable.get_func(cur_func_name)
+          ->push_instr(ret_bb, new ReturnIR(ret_rvalue));
     } else {
-      ret_bb->push_ir_instr(new ReturnIR(std::nullopt));
+      ftable.get_func(cur_func_name)
+          ->push_instr(ret_bb, new ReturnIR(std::nullopt));
     }
   } else {
     if (!has_return) {
-      cur_bb->push_ir_instr(new ReturnIR(std::nullopt));
+      ftable.get_func(cur_func_name)
+          ->push_instr(cur_bb, new ReturnIR(std::nullopt));
     }
   }
 
@@ -583,7 +593,8 @@ SysYAstVisitor::visitAssignment(SysYParser::AssignmentContext *ctx) {
   if (cur_bb == nullptr) {
     throw RuntimeError("cur_bb nullptr");
   }
-  cur_bb->push_ir_instr(new StoreValueIR(lvalue, rvalue));
+  ftable.get_func(cur_func_name)
+      ->push_instr(cur_bb, new StoreValueIR(lvalue, rvalue));
   spdlog::debug("leaveAssignment");
   return nullptr;
 }
@@ -618,7 +629,8 @@ antlrcpp::Any SysYAstVisitor::visitIfStmt1(SysYParser::IfStmt1Context *ctx) {
   false_bb_stack.pop_back();
   // true branch last basic block -> false basic block
   if (!cur_bb->is_have_exit()) {
-    cur_bb->push_ir_instr(new BranchIR(false_branch_bb->label));
+    ftable.get_func(cur_func_name)
+        ->push_instr(cur_bb, new BranchIR(false_branch_bb->label));
     false_branch_bb->add_prev_bb(cur_bb->label);
   } else {
     // may have return in true branch
@@ -647,14 +659,16 @@ antlrcpp::Any SysYAstVisitor::visitIfStmt2(SysYParser::IfStmt2Context *ctx) {
   cur_bb = cur_func->alloc_bb("after if");
   // true branch last basic block -> after if basic block
   if (!true_branch_last_bb->is_have_exit()) {
-    true_branch_last_bb->push_ir_instr(new BranchIR(cur_bb->label));
+    ftable.get_func(cur_func_name)
+        ->push_instr(true_branch_last_bb, new BranchIR(cur_bb->label));
     cur_bb->add_prev_bb(true_branch_last_bb->label);
   } else {
     // may have return in true branch
   }
   // false branch last basic block -> after if basic block
   if (!false_branch_last_bb->is_have_exit()) {
-    false_branch_last_bb->push_ir_instr(new BranchIR(cur_bb->label));
+    ftable.get_func(cur_func_name)
+        ->push_instr(false_branch_last_bb, new BranchIR(cur_bb->label));
     cur_bb->add_prev_bb(false_branch_last_bb->label);
   } else {
     // may have return in true branch
@@ -669,7 +683,8 @@ SysYAstVisitor::visitWhileStmt(SysYParser::WhileStmtContext *ctx) {
   auto cur_func = ftable.get_func(cur_func_name);
   auto cond_bb = cur_func->alloc_bb("while.cond");
   continue_target_bb.push_back(cond_bb);
-  cur_bb->push_ir_instr(new BranchIR(cond_bb->label));
+  ftable.get_func(cur_func_name)
+      ->push_instr(cur_bb, new BranchIR(cond_bb->label));
   cond_bb->add_prev_bb(cur_bb->label);
   cur_bb = cond_bb;
   ctx->cond()->accept(this);
@@ -679,7 +694,8 @@ SysYAstVisitor::visitWhileStmt(SysYParser::WhileStmtContext *ctx) {
   ctx->stmt()->accept(this);
   if (!cur_bb->is_have_exit()) {
     // while last true basic block to cond basic block
-    cur_bb->push_ir_instr(new BranchIR(continue_target_bb.back()->label));
+    ftable.get_func(cur_func_name)
+        ->push_instr(cur_bb, new BranchIR(continue_target_bb.back()->label));
     continue_target_bb.back()->add_prev_bb(cur_bb->label);
   } else {
     // while last true basic block may return early
@@ -701,7 +717,8 @@ SysYAstVisitor::visitBreakStmt(SysYParser::BreakStmtContext *ctx) {
   if (!break_target_bb.size()) {
     throw InvalidBreak();
   }
-  cur_bb->push_ir_instr(new BranchIR(break_target_bb.back()->label));
+  ftable.get_func(cur_func_name)
+      ->push_instr(cur_bb, new BranchIR(break_target_bb.back()->label));
   auto cur_func = ftable.get_func(cur_func_name);
   cur_bb = cur_func->alloc_bb(); // unreachable block, drop in next pass
   spdlog::debug("leaveBreakStmt");
@@ -715,7 +732,8 @@ SysYAstVisitor::visitContinueStmt(SysYParser::ContinueStmtContext *ctx) {
   if (!continue_target_bb.size()) {
     throw InvalidContinue();
   }
-  cur_bb->push_ir_instr(new BranchIR(continue_target_bb.back()->label));
+  ftable.get_func(cur_func_name)
+      ->push_instr(cur_bb, new BranchIR(continue_target_bb.back()->label));
   auto cur_func = ftable.get_func(cur_func_name);
   cur_bb = cur_func->alloc_bb(); // unreachable block, drop in next pass
   spdlog::debug("leaveContinueStmt");
@@ -737,12 +755,15 @@ SysYAstVisitor::visitReturnStmt(SysYParser::ReturnStmtContext *ctx) {
         auto rvalue = ctx->exp()->accept(this).as<SSARightValue>();
         if (ret_bb_opt == std::nullopt) {
           // single-return, just return in current bb
-          cur_bb->push_ir_instr(new ReturnIR(rvalue));
+          ftable.get_func(cur_func_name)
+              ->push_instr(cur_bb, new ReturnIR(rvalue));
         } else {
           // multi-return, need a unified return bb
-          cur_bb->push_ir_instr(
-              new StoreValueIR(ret_value_opt.value(), rvalue));
-          cur_bb->push_ir_instr(new BranchIR(ret_bb_opt.value()->label));
+          ftable.get_func(cur_func_name)
+              ->push_instr(cur_bb,
+                           new StoreValueIR(ret_value_opt.value(), rvalue));
+          ftable.get_func(cur_func_name)
+              ->push_instr(cur_bb, new BranchIR(ret_bb_opt.value()->label));
           ret_bb_opt.value()->add_prev_bb(cur_bb->label);
         }
       } else if (depth >= 2) {
@@ -751,8 +772,11 @@ SysYAstVisitor::visitReturnStmt(SysYParser::ReturnStmtContext *ctx) {
           ret_bb_opt = cur_func->alloc_bb("return");
         }
         auto rvalue = ctx->exp()->accept(this).as<SSARightValue>();
-        cur_bb->push_ir_instr(new StoreValueIR(ret_value_opt.value(), rvalue));
-        cur_bb->push_ir_instr(new BranchIR(ret_bb_opt.value()->label));
+        ftable.get_func(cur_func_name)
+            ->push_instr(cur_bb,
+                         new StoreValueIR(ret_value_opt.value(), rvalue));
+        ftable.get_func(cur_func_name)
+            ->push_instr(cur_bb, new BranchIR(ret_bb_opt.value()->label));
         ret_bb_opt.value()->add_prev_bb(cur_bb->label);
       }
     }
@@ -763,17 +787,20 @@ SysYAstVisitor::visitReturnStmt(SysYParser::ReturnStmtContext *ctx) {
       } else if (depth == 1) {
         if (ret_bb_opt == std::nullopt) {
           // single-return, just return in current bb
-          cur_bb->push_ir_instr(new ReturnIR(std::nullopt));
+          ftable.get_func(cur_func_name)
+              ->push_instr(cur_bb, new ReturnIR(std::nullopt));
         } else {
           // multi-return, need a unified return bb
-          cur_bb->push_ir_instr(new BranchIR(ret_bb_opt.value()->label));
+          ftable.get_func(cur_func_name)
+              ->push_instr(cur_bb, new BranchIR(ret_bb_opt.value()->label));
           ret_bb_opt.value()->add_prev_bb(cur_bb->label);
         }
       } else if (depth >= 2) {
         if (ret_bb_opt == std::nullopt) {
           ret_bb_opt = cur_func->alloc_bb("return");
         }
-        cur_bb->push_ir_instr(new BranchIR(ret_bb_opt.value()->label));
+        ftable.get_func(cur_func_name)
+            ->push_instr(cur_bb, new BranchIR(ret_bb_opt.value()->label));
         ret_bb_opt.value()->add_prev_bb(cur_bb->label);
       }
     } else {
@@ -802,8 +829,9 @@ antlrcpp::Any SysYAstVisitor::visitCond(SysYParser::CondContext *ctx) {
   if (res.isNotNull()) {
     true_branch_bb = true_bb_stack.back();
     false_branch_bb = false_bb_stack.back();
-    cur_bb->push_ir_instr(
-        new BranchIR(res, true_branch_bb->label, false_branch_bb->label));
+    ftable.get_func(cur_func_name)
+        ->push_instr(cur_bb, new BranchIR(res, true_branch_bb->label,
+                                          false_branch_bb->label));
     true_branch_bb->add_prev_bb(cur_bb->label);
     false_branch_bb->add_prev_bb(cur_bb->label);
   } else {
@@ -845,8 +873,9 @@ antlrcpp::Any SysYAstVisitor::visitLVal(SysYParser::LValContext *ctx) {
         auto new_shape = lvalue.get_shape();
         new_shape.erase(new_shape.begin());
         SSALeftValue new_lvalue(cur_func->alloc_ssa(), type, new_shape);
-        cur_bb->push_ir_instr(
-            new GEPIR(new_lvalue, lvalue, SSARightValue(0), i));
+        ftable.get_func(cur_func_name)
+            ->push_instr(cur_bb,
+                         new GEPIR(new_lvalue, lvalue, SSARightValue(0), i));
         lvalue = new_lvalue;
       }
       spdlog::debug("leaveLVal_1");
@@ -880,13 +909,14 @@ SysYAstVisitor::visitPrimaryExp2(SysYParser::PrimaryExp2Context *ctx) {
       new_shape.erase(new_shape.begin());
       SSALeftValue d1(ftable.get_func(cur_func_name)->alloc_ssa(), s1.type,
                       new_shape);
-      cur_bb->push_ir_instr(
-          new GEPIR(d1, s1, SSARightValue(0), SSARightValue(0)));
+      ftable.get_func(cur_func_name)
+          ->push_instr(cur_bb,
+                       new GEPIR(d1, s1, SSARightValue(0), SSARightValue(0)));
       return d1.to_rvalue();
     } else {
       // scalar value
       SSARightValue d1(cur_func->alloc_ssa(), cur_type);
-      cur_bb->push_ir_instr(new LoadIR(d1, s1));
+      ftable.get_func(cur_func_name)->push_instr(cur_bb, new LoadIR(d1, s1));
       spdlog::debug("leavePrimaryExp2_0");
       return d1;
     }
@@ -975,12 +1005,15 @@ antlrcpp::Any SysYAstVisitor::visitUnary2(SysYParser::Unary2Context *ctx) {
     if (callee_entry->return_type != Type::VOID) {
       SSARightValue ret_rvalue(caller_entry->alloc_ssa(),
                                callee_entry->return_type);
-      cur_bb->push_ir_instr(new CallFuncIR(func_name, ret_rvalue, args));
+      ftable.get_func(cur_func_name)
+          ->push_instr(cur_bb, new CallFuncIR(func_name, ret_rvalue, args));
       spdlog::debug("leaveUnary2_1");
       return ret_rvalue;
     } else {
       SSARightValue fake_ret_rvalue(0, Type::VOID);
-      cur_bb->push_ir_instr(new CallFuncIR(func_name, fake_ret_rvalue, args));
+      ftable.get_func(cur_func_name)
+          ->push_instr(cur_bb,
+                       new CallFuncIR(func_name, fake_ret_rvalue, args));
       spdlog::debug("leaveUnary2_2");
       return nullptr;
     }
@@ -1016,18 +1049,23 @@ antlrcpp::Any SysYAstVisitor::visitUnary3(SysYParser::Unary3Context *ctx) {
       return ssa;
     } else if (opcode == '-') {
       SSARightValue ret_ssa(cur_func->alloc_ssa(), ssa.type);
-      cur_bb->push_ir_instr(new NegIR(ret_ssa, ssa));
+      ftable.get_func(cur_func_name)
+          ->push_instr(cur_bb, new NegIR(ret_ssa, ssa));
       spdlog::debug("leaveUnary3_1");
       return ret_ssa;
     } else if (opcode == '!') {
       if (ssa.id) {
         SSARightValue ret1_ssa(cur_func->alloc_ssa(), ssa.type);
-        cur_bb->push_ir_instr(
-            new IcmpIR(ret1_ssa, ssa, SSARightValue(0), IcmpType::NEQ));
+        ftable.get_func(cur_func_name)
+            ->push_instr(cur_bb, new IcmpIR(ret1_ssa, ssa, SSARightValue(0),
+                                            IcmpType::NEQ));
         SSARightValue ret2_ssa(cur_func->alloc_ssa(), ssa.type);
-        cur_bb->push_ir_instr(new XorIR(ret2_ssa, ret1_ssa, SSARightValue(1)));
+        ftable.get_func(cur_func_name)
+            ->push_instr(cur_bb,
+                         new XorIR(ret2_ssa, ret1_ssa, SSARightValue(1)));
         SSARightValue ret3_ssa(cur_func->alloc_ssa(), ssa.type);
-        cur_bb->push_ir_instr(new ZExtIR(ret3_ssa, ret2_ssa));
+        ftable.get_func(cur_func_name)
+            ->push_instr(cur_bb, new ZExtIR(ret3_ssa, ret2_ssa));
         spdlog::debug("leaveUnary3_2");
         return ret3_ssa;
       } else {
@@ -1113,13 +1151,16 @@ antlrcpp::Any SysYAstVisitor::visitMul2(SysYParser::Mul2Context *ctx) {
     int d1_id = cur_func->alloc_ssa();
     SSARightValue ret_ssa(d1_id, lhs_ssa.type);
     if (opcode == '*') {
-      cur_bb->push_ir_instr(new MulIR(ret_ssa, lhs_ssa, rhs_ssa));
+      ftable.get_func(cur_func_name)
+          ->push_instr(cur_bb, new MulIR(ret_ssa, lhs_ssa, rhs_ssa));
       spdlog::debug("leaveMul2_2");
     } else if (opcode == '/') {
-      cur_bb->push_ir_instr(new DivIR(ret_ssa, lhs_ssa, rhs_ssa));
+      ftable.get_func(cur_func_name)
+          ->push_instr(cur_bb, new DivIR(ret_ssa, lhs_ssa, rhs_ssa));
       spdlog::debug("leaveMul2_3");
     } else {
-      cur_bb->push_ir_instr(new ModIR(ret_ssa, lhs_ssa, rhs_ssa));
+      ftable.get_func(cur_func_name)
+          ->push_instr(cur_bb, new ModIR(ret_ssa, lhs_ssa, rhs_ssa));
       spdlog::debug("leaveMul2_4");
     }
     return ret_ssa;
@@ -1166,10 +1207,12 @@ antlrcpp::Any SysYAstVisitor::visitAdd2(SysYParser::Add2Context *ctx) {
     int d1_id = cur_func->alloc_ssa();
     SSARightValue ret_ssa(d1_id, lhs_ssa.type);
     if (opcode == '+') {
-      cur_bb->push_ir_instr(new AddIR(ret_ssa, lhs_ssa, rhs_ssa));
+      ftable.get_func(cur_func_name)
+          ->push_instr(cur_bb, new AddIR(ret_ssa, lhs_ssa, rhs_ssa));
       spdlog::debug("leaveAdd2_2");
     } else {
-      cur_bb->push_ir_instr(new SubIR(ret_ssa, lhs_ssa, rhs_ssa));
+      ftable.get_func(cur_func_name)
+          ->push_instr(cur_bb, new SubIR(ret_ssa, lhs_ssa, rhs_ssa));
       spdlog::debug("leaveAdd2_3");
     }
     return ret_ssa;
@@ -1192,7 +1235,8 @@ antlrcpp::Any SysYAstVisitor::visitRel2(SysYParser::Rel2Context *ctx) {
   shared_ptr<FunctionEntry> cur_func = ftable.get_func(cur_func_name);
   int d1_id = cur_func->alloc_ssa();
   SSARightValue ret_ssa(d1_id, Type::I32);
-  cur_bb->push_ir_instr(new IcmpIR(ret_ssa, lhs_ssa, rhs_ssa, icmp_type));
+  ftable.get_func(cur_func_name)
+      ->push_instr(cur_bb, new IcmpIR(ret_ssa, lhs_ssa, rhs_ssa, icmp_type));
   spdlog::debug("leaveRel2");
   return ret_ssa;
 }
@@ -1203,7 +1247,7 @@ antlrcpp::Any SysYAstVisitor::visitRel1(SysYParser::Rel1Context *ctx) {
   // if (value_mode == Condition) {
   //   shared_ptr<FunctionEntry> cur_func = ftable.get_func(cur_func_name);
   //   SSARightValue ret_ssa(cur_func->alloc_ssa(), Type::I32);
-  //   cur_bb->push_ir_instr(
+  //   ftable.get_func(cur_func_name)->push_instr(cur_bb,
   //       new IcmpIR(ret_ssa, lhs_ssa, SSARightValue(0), IcmpType("!=")));
   //   spdlog::debug("leaveRel1_0");
   //   return ret_ssa;
@@ -1229,7 +1273,8 @@ antlrcpp::Any SysYAstVisitor::visitEq2(SysYParser::Eq2Context *ctx) {
   shared_ptr<FunctionEntry> cur_func = ftable.get_func(cur_func_name);
   int d1_id = cur_func->alloc_ssa();
   SSARightValue ret_ssa(d1_id, Type::I32);
-  cur_bb->push_ir_instr(new IcmpIR(ret_ssa, lhs_ssa, rhs_ssa, icmp_type));
+  ftable.get_func(cur_func_name)
+      ->push_instr(cur_bb, new IcmpIR(ret_ssa, lhs_ssa, rhs_ssa, icmp_type));
   spdlog::debug("leaveEq2");
   return ret_ssa;
 }
@@ -1243,8 +1288,9 @@ antlrcpp::Any SysYAstVisitor::visitLAnd2(SysYParser::LAnd2Context *ctx) {
   auto true_branch_bb = true_bb_stack.back();
   auto false_branch_bb = false_bb_stack.back();
   true_bb_stack.pop_back();
-  cur_bb->push_ir_instr(
-      new BranchIR(lhs, true_branch_bb->label, false_branch_bb->label));
+  ftable.get_func(cur_func_name)
+      ->push_instr(cur_bb, new BranchIR(lhs, true_branch_bb->label,
+                                        false_branch_bb->label));
   true_branch_bb->add_prev_bb(cur_bb->label);
   false_branch_bb->add_prev_bb(cur_bb->label);
   // basic block true_branch_bb for (&& rhs)
@@ -1262,8 +1308,9 @@ antlrcpp::Any SysYAstVisitor::visitLAnd1(SysYParser::LAnd1Context *ctx) {
       last_instr.value()->get_type() != IRInstr::ICMP) {
     auto cur_func = ftable.get_func(cur_func_name);
     SSARightValue ret_ssa(cur_func->alloc_ssa(), Type::I32);
-    cur_bb->push_ir_instr(
-        new IcmpIR(ret_ssa, res, SSARightValue(0), IcmpType::NEQ));
+    ftable.get_func(cur_func_name)
+        ->push_instr(cur_bb,
+                     new IcmpIR(ret_ssa, res, SSARightValue(0), IcmpType::NEQ));
     spdlog::debug("leaveLAnd1_0");
     return ret_ssa;
   } else {
@@ -1289,8 +1336,9 @@ antlrcpp::Any SysYAstVisitor::visitLOr2(SysYParser::LOr2Context *ctx) {
   auto true_branch_bb = true_bb_stack.back();
   auto false_branch_bb = false_bb_stack.back();
   false_bb_stack.pop_back();
-  cur_bb->push_ir_instr(
-      new BranchIR(lhs, true_branch_bb->label, false_branch_bb->label));
+  ftable.get_func(cur_func_name)
+      ->push_instr(cur_bb, new BranchIR(lhs, true_branch_bb->label,
+                                        false_branch_bb->label));
   true_branch_bb->add_prev_bb(cur_bb->label);
   false_branch_bb->add_prev_bb(cur_bb->label);
   cur_bb = false_branch_bb;

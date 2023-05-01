@@ -58,7 +58,7 @@ Operand2 from_immediate(int32_t immediate) {
 };
 
 void IRVisitor::visit_basic_block(shared_ptr<BasicBlock> basic_block) {
-  for (auto ir_instr : basic_block->instrs) {
+  for (auto [id, ir_instr] : basic_block->instr_map) {
     switch (ir_instr->oper) {
     case IRInstr::ALLOCA: {
       auto alloc_instr = dynamic_pointer_cast<AllocaIR>(ir_instr);
@@ -111,7 +111,7 @@ void IRVisitor::visit_basic_block(shared_ptr<BasicBlock> basic_block) {
 }
 
 void IRVisitor::visit_func_entry(shared_ptr<FunctionEntry> func_entry) {
-  for (auto bb : func_entry->basic_blocks) {
+  for (const auto& [id, bb] : func_entry->bb_map) {
     visit_basic_block(bb);
   }
 }
