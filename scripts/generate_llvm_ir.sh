@@ -7,11 +7,11 @@ if (($# >= 1)); then
 		path=$pathorfile # is path
 		for file in $path/*.c; do
 			echo "$file"
-			llvm-gcc -emit-llvm -S -O0 $file -o "${file%%.c}.ll"
+			llvm-gcc -emit-llvm -S -O0 -Xclang -disable-O0-optnone $file -o "${file%%.c}.ll"
 		done
 	else
 		file=$pathorfile # is file
-		llvm-gcc -emit-llvm -S -O0 $file -o "${file%%.c}.ll"
+		llvm-gcc -emit-llvm -S -O0 -Xclang -disable-O0-optnone $file -o "${file%%.c}.ll"
 	fi
 else
 	echo "use it like $: sh ./scripts/generate_llvm_ir.sh test/functional/30_continue.c or \
