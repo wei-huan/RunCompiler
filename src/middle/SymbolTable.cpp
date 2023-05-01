@@ -25,8 +25,7 @@ void VariableTable::traverse(int depth) {
     }
     if (entry.is_const()) {
       try {
-        std::cout << key << ":"
-                  << entry.value.back().value.value() // TODO
+        std::cout << key << ":" << entry.value.back().value.value() // TODO
                   << std::endl;
       } catch (const std::bad_optional_access &e) {
         std::cout << e.what() << '\n';
@@ -46,16 +45,31 @@ void VariableTable::traverse(int depth) {
   // }
 };
 
+/// function entry
 shared_ptr<BasicBlock> FunctionEntry::alloc_bb() {
-  auto spbb = std::make_shared<BasicBlock>(cur_ssa_id++);
-  basic_blocks.emplace_back(spbb);
-  return basic_blocks.back();
+  auto spbb = std::make_shared<BasicBlock>(cur_ssa_id);
+  bb_map[cur_ssa_id++] = spbb;
+  return spbb;
+}
+
+shared_ptr<BasicBlock> FunctionEntry::alloc_entry_bb() {
+  entry_bb = cur_ssa_id;
+  auto spbb = std::make_shared<BasicBlock>(cur_ssa_id, "entry");
+  bb_map[cur_ssa_id++] = spbb;
+  return spbb;
 }
 
 shared_ptr<BasicBlock> FunctionEntry::alloc_bb(string alias) {
-  auto spbb = std::make_shared<BasicBlock>(cur_ssa_id++, alias);
-  basic_blocks.emplace_back(spbb);
-  return basic_blocks.back();
+  auto spbb = std::make_shared<BasicBlock>(cur_ssa_id, alias);
+  bb_map[cur_ssa_id++] = spbb;
+  return spbb;
+}
+
+void FunctionEntry::push_instr(shared_ptr<BasicBlock> bb, IRInstr *instr) {
+  if (instr->oper == IRInstr::RET) {
+    exit_bb = bb->label;
+  }
+  bb->push_ir_instr(cur_instr_id++, instr);
 }
 
 void FunctionEntry::set_lib_func_arg_list(vector<Type> type_list) {
@@ -73,8 +87,8 @@ void FunctionEntry::set_lib_func_arg_list(vector<Type> type_list) {
 }
 
 void FunctionEntry::visit_basic_blocks() {
-  for (auto bb : basic_blocks) {
-    std::cout << bb->label << " (" << bb->get_alias() << ")"
+  for (const auto &[id, bb] : bb_map) {
+    std::cout << "B" << bb->label << " (" << bb->get_alias() << ")"
               << ":";
     if (bb->get_prev_bb().size()) {
       std::cout << "                                         ; preds = ";
@@ -132,7 +146,7 @@ void FunctionTable::traverse() {
 void FunctionTable::gen_ir_code() {
   for (auto &[key, val] : ftable) {
     if (key == "_init") {
-      for (auto bb : val->basic_blocks) {
+      for (const auto &[id, bb] : val->bb_map) {
         bb->print_ir_code();
       }
       std::cout << std::endl;

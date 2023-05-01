@@ -15,6 +15,7 @@
 #include "Type.hpp"
 #include "common/common.hpp"
 #include "middle/BasicBlock.hpp"
+#include "middle/IR.hpp"
 
 using std::map;
 using std::optional;
@@ -41,7 +42,6 @@ typedef SSALeftValue VariableEntry;
 //   VariableEntry(SSALeftValue lvalue) : lvalue(lvalue) {}
 // };
 
-
 // 变量表
 struct VariableTable {
   VariableTable *ptable;
@@ -62,11 +62,13 @@ struct FunctionEntry {
   string func_name;
   Type return_type;
   int cur_ssa_id = 0;
+  int cur_instr_id = 0;
   bool is_lib_func = false; // 库函数
   bool is_variadic = false; // 变参函数
   VariableTable *vtable = nullptr;
   vector<pair<string, VariableEntry>> arg_list;
-  vector<shared_ptr<BasicBlock>> basic_blocks;
+  int entry_bb = 0, exit_bb = 0;
+  std::map<int, shared_ptr<BasicBlock>> bb_map;
   FunctionEntry(string func_name, Type return_type)
       : func_name(func_name), return_type(return_type){};
   FunctionEntry(string func_name, Type return_type, bool _is_lib_func)
@@ -81,7 +83,9 @@ struct FunctionEntry {
   void set_arg_list(vector<pair<string, VariableEntry>> list) {
     arg_list = list;
   }
+  void push_instr(shared_ptr<BasicBlock> bb, IRInstr* instr);
   void set_lib_func_arg_list(vector<Type> type_list);
+  shared_ptr<BasicBlock> alloc_entry_bb();
   shared_ptr<BasicBlock> alloc_bb();
   shared_ptr<BasicBlock> alloc_bb(string alias);
   int alloc_ssa() { return cur_ssa_id++; }
