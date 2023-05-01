@@ -1,5 +1,5 @@
-; ModuleID = 'test/functional/85_long_code.c'
-source_filename = "test/functional/85_long_code.c"
+; ModuleID = 'test/functional//85_long_code.c'
+source_filename = "test/functional//85_long_code.c"
 target datalayout = "e-m:o-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-apple-macosx12.0.0"
 
@@ -16,7 +16,7 @@ target triple = "x86_64-apple-macosx12.0.0"
 @_sysy_us = common global [1024 x i32] zeroinitializer, align 16
 @_sysy_idx = common global i32 0, align 4
 
-; Function Attrs: noinline nounwind optnone ssp uwtable
+; Function Attrs: noinline nounwind ssp uwtable
 define i32 @bubblesort(i32* %0) #0 {
   %2 = alloca i32*, align 8
   %3 = alloca i32, align 4
@@ -104,7 +104,7 @@ define i32 @bubblesort(i32* %0) #0 {
   ret i32 0
 }
 
-; Function Attrs: noinline nounwind optnone ssp uwtable
+; Function Attrs: noinline nounwind ssp uwtable
 define i32 @insertsort(i32* %0) #0 {
   %2 = alloca i32*, align 8
   %3 = alloca i32, align 4
@@ -185,7 +185,7 @@ define i32 @insertsort(i32* %0) #0 {
   ret i32 0
 }
 
-; Function Attrs: noinline nounwind optnone ssp uwtable
+; Function Attrs: noinline nounwind ssp uwtable
 define i32 @QuickSort(i32* %0, i32 %1, i32 %2) #0 {
   %4 = alloca i32*, align 8
   %5 = alloca i32, align 4
@@ -356,7 +356,7 @@ define i32 @QuickSort(i32* %0, i32 %1, i32 %2) #0 {
   ret i32 0
 }
 
-; Function Attrs: noinline nounwind optnone ssp uwtable
+; Function Attrs: noinline nounwind ssp uwtable
 define i32 @getMid(i32* %0) #0 {
   %2 = alloca i32, align 4
   %3 = alloca i32*, align 8
@@ -404,7 +404,7 @@ define i32 @getMid(i32* %0) #0 {
   ret i32 %33
 }
 
-; Function Attrs: noinline nounwind optnone ssp uwtable
+; Function Attrs: noinline nounwind ssp uwtable
 define i32 @getMost(i32* %0) #0 {
   %2 = alloca i32*, align 8
   %3 = alloca [1000 x i32], align 16
@@ -487,7 +487,7 @@ define i32 @getMost(i32* %0) #0 {
   ret i32 %52
 }
 
-; Function Attrs: noinline nounwind optnone ssp uwtable
+; Function Attrs: noinline nounwind ssp uwtable
 define i32 @revert(i32* %0) #0 {
   %2 = alloca i32*, align 8
   %3 = alloca i32, align 4
@@ -539,7 +539,7 @@ define i32 @revert(i32* %0) #0 {
   ret i32 0
 }
 
-; Function Attrs: noinline nounwind optnone ssp uwtable
+; Function Attrs: noinline nounwind ssp uwtable
 define i32 @arrCopy(i32* %0, i32* %1) #0 {
   %3 = alloca i32*, align 8
   %4 = alloca i32*, align 8
@@ -575,7 +575,7 @@ define i32 @arrCopy(i32* %0, i32* %1) #0 {
   ret i32 0
 }
 
-; Function Attrs: noinline nounwind optnone ssp uwtable
+; Function Attrs: noinline nounwind ssp uwtable
 define i32 @calSum(i32* %0, i32 %1) #0 {
   %3 = alloca i32*, align 8
   %4 = alloca i32, align 4
@@ -638,7 +638,7 @@ define i32 @calSum(i32* %0, i32 %1) #0 {
   ret i32 0
 }
 
-; Function Attrs: noinline nounwind optnone ssp uwtable
+; Function Attrs: noinline nounwind ssp uwtable
 define i32 @avgPooling(i32* %0, i32 %1) #0 {
   %3 = alloca i32*, align 8
   %4 = alloca i32, align 4
@@ -766,7 +766,7 @@ define i32 @avgPooling(i32* %0, i32 %1) #0 {
   ret i32 0
 }
 
-; Function Attrs: noinline nounwind optnone ssp uwtable
+; Function Attrs: noinline nounwind ssp uwtable
 define i32 @main() #0 {
   %1 = alloca i32, align 4
   %2 = alloca [32 x i32], align 16
@@ -1056,7 +1056,7 @@ define i32 @main() #0 {
 
 declare void @putint(i32) #1
 
-attributes #0 = { noinline nounwind optnone ssp uwtable "darwin-stkchk-strong-link" "frame-pointer"="all" "min-legal-vector-width"="0" "no-trapping-math"="true" "probe-stack"="___chkstk_darwin" "stack-protector-buffer-size"="8" "target-cpu"="penryn" "target-features"="+cx16,+cx8,+fxsr,+mmx,+sahf,+sse,+sse2,+sse3,+sse4.1,+ssse3,+x87" "tune-cpu"="generic" }
+attributes #0 = { noinline nounwind ssp uwtable "darwin-stkchk-strong-link" "frame-pointer"="all" "min-legal-vector-width"="0" "no-trapping-math"="true" "probe-stack"="___chkstk_darwin" "stack-protector-buffer-size"="8" "target-cpu"="penryn" "target-features"="+cx16,+cx8,+fxsr,+mmx,+sahf,+sse,+sse2,+sse3,+sse4.1,+ssse3,+x87" "tune-cpu"="generic" }
 attributes #1 = { "darwin-stkchk-strong-link" "frame-pointer"="all" "no-trapping-math"="true" "probe-stack"="___chkstk_darwin" "stack-protector-buffer-size"="8" "target-cpu"="penryn" "target-features"="+cx16,+cx8,+fxsr,+mmx,+sahf,+sse,+sse2,+sse3,+sse4.1,+ssse3,+x87" "tune-cpu"="generic" }
 
 !llvm.module.flags = !{!0, !1, !2, !3, !4}

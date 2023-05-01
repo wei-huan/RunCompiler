@@ -1,5 +1,5 @@
-; ModuleID = 'test/functional/35_op_priority1.c'
-source_filename = "test/functional/35_op_priority1.c"
+; ModuleID = 'test/functional//35_op_priority1.c'
+source_filename = "test/functional//35_op_priority1.c"
 target datalayout = "e-m:o-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-apple-macosx12.0.0"
 
@@ -15,7 +15,7 @@ target triple = "x86_64-apple-macosx12.0.0"
 @_sysy_us = common global [1024 x i32] zeroinitializer, align 16
 @_sysy_idx = common global i32 0, align 4
 
-; Function Attrs: noinline nounwind optnone ssp uwtable
+; Function Attrs: noinline nounwind ssp uwtable
 define i32 @main() #0 {
   %1 = alloca i32, align 4
   %2 = alloca i32, align 4
@@ -37,7 +37,7 @@ define i32 @main() #0 {
   ret i32 %12
 }
 
-attributes #0 = { noinline nounwind optnone ssp uwtable "darwin-stkchk-strong-link" "frame-pointer"="all" "min-legal-vector-width"="0" "no-trapping-math"="true" "probe-stack"="___chkstk_darwin" "stack-protector-buffer-size"="8" "target-cpu"="penryn" "target-features"="+cx16,+cx8,+fxsr,+mmx,+sahf,+sse,+sse2,+sse3,+sse4.1,+ssse3,+x87" "tune-cpu"="generic" }
+attributes #0 = { noinline nounwind ssp uwtable "darwin-stkchk-strong-link" "frame-pointer"="all" "min-legal-vector-width"="0" "no-trapping-math"="true" "probe-stack"="___chkstk_darwin" "stack-protector-buffer-size"="8" "target-cpu"="penryn" "target-features"="+cx16,+cx8,+fxsr,+mmx,+sahf,+sse,+sse2,+sse3,+sse4.1,+ssse3,+x87" "tune-cpu"="generic" }
 
 !llvm.module.flags = !{!0, !1, !2, !3, !4}
 !llvm.ident = !{!5}

@@ -1,5 +1,5 @@
-; ModuleID = 'test/functional/64_calculator.c'
-source_filename = "test/functional/64_calculator.c"
+; ModuleID = 'test/functional//64_calculator.c'
+source_filename = "test/functional//64_calculator.c"
 target datalayout = "e-m:o-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-apple-macosx12.0.0"
 
@@ -24,7 +24,7 @@ target triple = "x86_64-apple-macosx12.0.0"
 @_sysy_us = common global [1024 x i32] zeroinitializer, align 16
 @_sysy_idx = common global i32 0, align 4
 
-; Function Attrs: noinline nounwind optnone readonly ssp uwtable willreturn
+; Function Attrs: noinline nounwind readonly ssp uwtable willreturn
 define i32 @isdigit(i32 %0) #0 {
   %2 = alloca i32, align 4
   %3 = alloca i32, align 4
@@ -51,7 +51,7 @@ define i32 @isdigit(i32 %0) #0 {
   ret i32 %12
 }
 
-; Function Attrs: noinline nounwind optnone ssp uwtable
+; Function Attrs: noinline nounwind ssp uwtable
 define i32 @power(i32 %0, i32 %1) #1 {
   %3 = alloca i32, align 4
   %4 = alloca i32, align 4
@@ -81,7 +81,7 @@ define i32 @power(i32 %0, i32 %1) #1 {
   ret i32 %16
 }
 
-; Function Attrs: noinline nounwind optnone ssp uwtable
+; Function Attrs: noinline nounwind ssp uwtable
 define i32 @getstr(i32* %0) #1 {
   %2 = alloca i32*, align 8
   %3 = alloca i32, align 4
@@ -127,7 +127,7 @@ define i32 @getstr(i32* %0) #1 {
 
 declare i32 @getch(...) #2
 
-; Function Attrs: noinline nounwind optnone ssp uwtable
+; Function Attrs: noinline nounwind ssp uwtable
 define void @intpush(i32 %0) #1 {
   %2 = alloca i32, align 4
   store i32 %0, i32* %2, align 4
@@ -142,7 +142,7 @@ define void @intpush(i32 %0) #1 {
   ret void
 }
 
-; Function Attrs: noinline nounwind optnone ssp uwtable
+; Function Attrs: noinline nounwind ssp uwtable
 define void @chapush(i32 %0) #1 {
   %2 = alloca i32, align 4
   store i32 %0, i32* %2, align 4
@@ -157,7 +157,7 @@ define void @chapush(i32 %0) #1 {
   ret void
 }
 
-; Function Attrs: noinline nounwind optnone ssp uwtable
+; Function Attrs: noinline nounwind ssp uwtable
 define i32 @intpop() #1 {
   %1 = load i32, i32* @intt, align 4
   %2 = sub nsw i32 %1, 1
@@ -170,7 +170,7 @@ define i32 @intpop() #1 {
   ret i32 %7
 }
 
-; Function Attrs: noinline nounwind optnone ssp uwtable
+; Function Attrs: noinline nounwind ssp uwtable
 define i32 @chapop() #1 {
   %1 = load i32, i32* @chat, align 4
   %2 = sub nsw i32 %1, 1
@@ -183,7 +183,7 @@ define i32 @chapop() #1 {
   ret i32 %7
 }
 
-; Function Attrs: noinline nounwind optnone ssp uwtable
+; Function Attrs: noinline nounwind ssp uwtable
 define void @intadd(i32 %0) #1 {
   %2 = alloca i32, align 4
   store i32 %0, i32* %2, align 4
@@ -209,7 +209,7 @@ define void @intadd(i32 %0) #1 {
   ret void
 }
 
-; Function Attrs: noinline nounwind optnone ssp uwtable
+; Function Attrs: noinline nounwind ssp uwtable
 define i32 @find() #1 {
   %1 = alloca i32, align 4
   %2 = call i32 @chapop()
@@ -244,7 +244,7 @@ define i32 @find() #1 {
   ret i32 %18
 }
 
-; Function Attrs: noinline nounwind optnone ssp uwtable
+; Function Attrs: noinline nounwind ssp uwtable
 define i32 @main() #1 {
   %1 = alloca i32, align 4
   %2 = alloca i32, align 4
@@ -965,8 +965,8 @@ define i32 @main() #1 {
 
 declare void @putint(i32) #2
 
-attributes #0 = { noinline nounwind optnone readonly ssp uwtable willreturn "darwin-stkchk-strong-link" "frame-pointer"="all" "min-legal-vector-width"="0" "no-trapping-math"="true" "probe-stack"="___chkstk_darwin" "stack-protector-buffer-size"="8" "target-cpu"="penryn" "target-features"="+cx16,+cx8,+fxsr,+mmx,+sahf,+sse,+sse2,+sse3,+sse4.1,+ssse3,+x87" "tune-cpu"="generic" }
-attributes #1 = { noinline nounwind optnone ssp uwtable "darwin-stkchk-strong-link" "frame-pointer"="all" "min-legal-vector-width"="0" "no-trapping-math"="true" "probe-stack"="___chkstk_darwin" "stack-protector-buffer-size"="8" "target-cpu"="penryn" "target-features"="+cx16,+cx8,+fxsr,+mmx,+sahf,+sse,+sse2,+sse3,+sse4.1,+ssse3,+x87" "tune-cpu"="generic" }
+attributes #0 = { noinline nounwind readonly ssp uwtable willreturn "darwin-stkchk-strong-link" "frame-pointer"="all" "min-legal-vector-width"="0" "no-trapping-math"="true" "probe-stack"="___chkstk_darwin" "stack-protector-buffer-size"="8" "target-cpu"="penryn" "target-features"="+cx16,+cx8,+fxsr,+mmx,+sahf,+sse,+sse2,+sse3,+sse4.1,+ssse3,+x87" "tune-cpu"="generic" }
+attributes #1 = { noinline nounwind ssp uwtable "darwin-stkchk-strong-link" "frame-pointer"="all" "min-legal-vector-width"="0" "no-trapping-math"="true" "probe-stack"="___chkstk_darwin" "stack-protector-buffer-size"="8" "target-cpu"="penryn" "target-features"="+cx16,+cx8,+fxsr,+mmx,+sahf,+sse,+sse2,+sse3,+sse4.1,+ssse3,+x87" "tune-cpu"="generic" }
 attributes #2 = { "darwin-stkchk-strong-link" "frame-pointer"="all" "no-trapping-math"="true" "probe-stack"="___chkstk_darwin" "stack-protector-buffer-size"="8" "target-cpu"="penryn" "target-features"="+cx16,+cx8,+fxsr,+mmx,+sahf,+sse,+sse2,+sse3,+sse4.1,+ssse3,+x87" "tune-cpu"="generic" }
 attributes #3 = { nounwind readonly willreturn }
 

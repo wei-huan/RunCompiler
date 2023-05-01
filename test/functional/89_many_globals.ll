@@ -1,5 +1,5 @@
-; ModuleID = 'test/functional/89_many_globals.c'
-source_filename = "test/functional/89_many_globals.c"
+; ModuleID = 'test/functional//89_many_globals.c'
+source_filename = "test/functional//89_many_globals.c"
 target datalayout = "e-m:o-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-apple-macosx12.0.0"
 
@@ -55,7 +55,7 @@ target triple = "x86_64-apple-macosx12.0.0"
 @_sysy_us = common global [1024 x i32] zeroinitializer, align 16
 @_sysy_idx = common global i32 0, align 4
 
-; Function Attrs: noinline nounwind optnone ssp uwtable
+; Function Attrs: noinline nounwind ssp uwtable
 define i32 @testParam8(i32 %0, i32 %1, i32 %2, i32 %3, i32 %4, i32 %5, i32 %6, i32 %7) #0 {
   %9 = alloca i32, align 4
   %10 = alloca i32, align 4
@@ -91,7 +91,7 @@ define i32 @testParam8(i32 %0, i32 %1, i32 %2, i32 %3, i32 %4, i32 %5, i32 %6, i
   ret i32 %31
 }
 
-; Function Attrs: noinline nounwind optnone ssp uwtable
+; Function Attrs: noinline nounwind ssp uwtable
 define i32 @testParam16(i32 %0, i32 %1, i32 %2, i32 %3, i32 %4, i32 %5, i32 %6, i32 %7, i32 %8, i32 %9, i32 %10, i32 %11, i32 %12, i32 %13, i32 %14, i32 %15) #0 {
   %17 = alloca i32, align 4
   %18 = alloca i32, align 4
@@ -159,7 +159,7 @@ define i32 @testParam16(i32 %0, i32 %1, i32 %2, i32 %3, i32 %4, i32 %5, i32 %6, 
   ret i32 %63
 }
 
-; Function Attrs: noinline nounwind optnone ssp uwtable
+; Function Attrs: noinline nounwind ssp uwtable
 define i32 @testParam32(i32 %0, i32 %1, i32 %2, i32 %3, i32 %4, i32 %5, i32 %6, i32 %7, i32 %8, i32 %9, i32 %10, i32 %11, i32 %12, i32 %13, i32 %14, i32 %15, i32 %16, i32 %17, i32 %18, i32 %19, i32 %20, i32 %21, i32 %22, i32 %23, i32 %24, i32 %25, i32 %26, i32 %27, i32 %28, i32 %29, i32 %30, i32 %31) #0 {
   %33 = alloca i32, align 4
   %34 = alloca i32, align 4
@@ -291,7 +291,7 @@ define i32 @testParam32(i32 %0, i32 %1, i32 %2, i32 %3, i32 %4, i32 %5, i32 %6, 
   ret i32 %127
 }
 
-; Function Attrs: noinline nounwind optnone ssp uwtable
+; Function Attrs: noinline nounwind ssp uwtable
 define i32 @main() #0 {
   %1 = alloca i32, align 4
   store i32 0, i32* %1, align 4
@@ -408,7 +408,7 @@ define i32 @main() #0 {
 
 declare void @putint(i32) #1
 
-attributes #0 = { noinline nounwind optnone ssp uwtable "darwin-stkchk-strong-link" "frame-pointer"="all" "min-legal-vector-width"="0" "no-trapping-math"="true" "probe-stack"="___chkstk_darwin" "stack-protector-buffer-size"="8" "target-cpu"="penryn" "target-features"="+cx16,+cx8,+fxsr,+mmx,+sahf,+sse,+sse2,+sse3,+sse4.1,+ssse3,+x87" "tune-cpu"="generic" }
+attributes #0 = { noinline nounwind ssp uwtable "darwin-stkchk-strong-link" "frame-pointer"="all" "min-legal-vector-width"="0" "no-trapping-math"="true" "probe-stack"="___chkstk_darwin" "stack-protector-buffer-size"="8" "target-cpu"="penryn" "target-features"="+cx16,+cx8,+fxsr,+mmx,+sahf,+sse,+sse2,+sse3,+sse4.1,+ssse3,+x87" "tune-cpu"="generic" }
 attributes #1 = { "darwin-stkchk-strong-link" "frame-pointer"="all" "no-trapping-math"="true" "probe-stack"="___chkstk_darwin" "stack-protector-buffer-size"="8" "target-cpu"="penryn" "target-features"="+cx16,+cx8,+fxsr,+mmx,+sahf,+sse,+sse2,+sse3,+sse4.1,+ssse3,+x87" "tune-cpu"="generic" }
 
 !llvm.module.flags = !{!0, !1, !2, !3, !4}
