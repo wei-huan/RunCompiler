@@ -9,6 +9,7 @@
 #include "Archinfo.hpp"
 #include "Instruction.hpp"
 #include "middle/SymbolTable.hpp"
+#include "middle/Function.hpp"
 
 using std::shared_ptr;
 using std::unordered_map;

@@ -7,6 +7,7 @@
 #include "middle/IR.hpp"
 #include "middle/SSA.hpp"
 #include "middle/SymbolTable.hpp"
+#include "middle/Function.hpp"
 #include "spdlog/spdlog.h"
 #include <cstddef>
 
