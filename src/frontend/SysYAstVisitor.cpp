@@ -733,7 +733,9 @@ SysYAstVisitor::visitBreakStmt(SysYParser::BreakStmtContext *ctx) {
   break_target_bb.back()->add_prev_bb(cur_bb->label);
   cur_bb->add_next_bb(break_target_bb.back()->label);
   auto cur_func = ftable.get_func(cur_func_name);
-  cur_bb = cur_func->alloc_bb(); // unreachable block, drop in next pass
+  // unreachable block, drop in next pass
+  cur_bb = cur_func->alloc_bb("after break");
+  cur_bb->set_have_exit();
   spdlog::debug("leaveBreakStmt");
   return res;
 }
@@ -750,7 +752,9 @@ SysYAstVisitor::visitContinueStmt(SysYParser::ContinueStmtContext *ctx) {
   continue_target_bb.back()->add_prev_bb(cur_bb->label);
   cur_bb->add_next_bb(continue_target_bb.back()->label);
   auto cur_func = ftable.get_func(cur_func_name);
-  cur_bb = cur_func->alloc_bb(); // unreachable block, drop in next pass
+  // unreachable block, drop in next pass
+  cur_bb = cur_func->alloc_bb("after continue");
+  cur_bb->set_have_exit();
   spdlog::debug("leaveContinueStmt");
   return res;
 }

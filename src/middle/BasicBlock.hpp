@@ -3,11 +3,11 @@
 
 #include <algorithm>
 #include <list>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
 #include <vector>
-#include <map>
 
 #include "common/errors.hpp"
 #include "middle/IR.hpp"
@@ -41,6 +41,7 @@ public:
   void update_alias(string new_alias) { alias = new_alias; }
   void print_ir_code();
   bool is_have_exit() { return have_exit; }
+  bool set_have_exit() { return have_exit = true; }
   vector<int> get_prev_bb() { return prev_bb; }
   vector<int> get_next_bb() { return next_bb; }
   optional<shared_ptr<IRInstr>> last_instr() {
@@ -48,6 +49,20 @@ public:
       return instr_map.rbegin()->second;
     } else {
       return std::nullopt;
+    }
+  }
+  // remove next bb
+  void remove_next_bb(int next_label) {
+    auto it = std::find(next_bb.begin(), next_bb.end(), next_label);
+    if (it != next_bb.end()) {
+      next_bb.erase(it);
+    }
+  }
+  // remove prev bb
+  void remove_prev_bb(int prev_label) {
+    auto it = std::find(prev_bb.begin(), prev_bb.end(), prev_label);
+    if (it != prev_bb.end()) {
+      prev_bb.erase(it);
     }
   }
 };

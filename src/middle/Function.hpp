@@ -7,7 +7,10 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -15,14 +18,17 @@
 #include "Type.hpp"
 #include "common/common.hpp"
 #include "middle/BasicBlock.hpp"
-#include "middle/SymbolTable.hpp"
 #include "middle/IR.hpp"
+#include "middle/SymbolTable.hpp"
 
 using std::map;
 using std::pair;
+using std::set;
 using std::shared_ptr;
 using std::string;
+using std::unordered_map;
 using std::vector;
+
 
 struct FunctionEntry {
   string func_name;
@@ -63,19 +69,11 @@ struct FunctionEntry {
   void gen_ir_code();
 
   // pass function
-  vector<vector<int>> dom_set();
-  vector<vector<int>> dom_frontier();
-};
 
-struct FunctionTable {
-  map<string, shared_ptr<FunctionEntry>> ftable;
-  void register_func(string name, shared_ptr<FunctionEntry> entry) {
-    ftable.insert({name, entry});
-  }
-  // todo: multi args func
-  shared_ptr<FunctionEntry> register_lib_func(string name, Type return_type);
-  shared_ptr<FunctionEntry> get_func(string name) { return ftable[name]; }
-  bool is_exist(string name) { return (ftable.count(name) > 0); }
-  void traverse();
-  void gen_ir_code();
+  unordered_map<int, pair<vector<int>, vector<int>>> cfg();
+  // <node k, dominators that dominate the node k>
+  unordered_map<int, vector<int>> dom_set();
+  // <node k, immediate dominator of node k>
+  unordered_map<int, int> dom_tree();
+  unordered_map<int, set<int>> dom_frontier();
 };

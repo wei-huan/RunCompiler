@@ -133,8 +133,14 @@ int main(int argc, char *argv[]) {
       auto fp = std::freopen(args[2].c_str(), "w+", stdout);
       astVisitor.ftable.gen_ir_code();
       fclose(fp);
+      std::freopen("/dev/tty", "w", stdout);
     }
     /* 机器无关优化 */
+    // astVisitor.ftable.dces();
+    // astVisitor.ftable.cfgs();
+    // astVisitor.ftable.dom_sets();
+    // astVisitor.ftable.dom_trees();
+    // astVisitor.ftable.dom_frontiers();
     // remove unused function
     // remove dead basic block pass
     // remove dead code in basic block pass
@@ -149,6 +155,7 @@ int main(int argc, char *argv[]) {
       auto fp = std::freopen(args[2].c_str(), "w+", stdout);
       ir_visitor.gen_asm_code();
       fclose(fp);
+      std::freopen("/dev/tty", "w", stdout);
     }
   } catch (std::exception &e) {
     cout << "error: " << e.what() << '\n';
