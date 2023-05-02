@@ -24,7 +24,7 @@ private:
   string alias;
   bool have_exit = false;
   vector<int> prev_bb; // info about control flow
-  
+  vector<int> next_bb; // info about control flow
 
 public:
   int label; // label = 0 for entry basic block
@@ -36,11 +36,13 @@ public:
   void push_ir_instr(int id, IRInstr *instruction);
   // add a previous basic block link to the basic block
   void add_prev_bb(int prev_label);
+  void add_next_bb(int next_label);
   string get_alias() { return alias; }
   void update_alias(string new_alias) { alias = new_alias; }
   void print_ir_code();
   bool is_have_exit() { return have_exit; }
   vector<int> get_prev_bb() { return prev_bb; }
+  vector<int> get_next_bb() { return next_bb; }
   optional<shared_ptr<IRInstr>> last_instr() {
     if (instr_map.size()) {
       return instr_map.rbegin()->second;

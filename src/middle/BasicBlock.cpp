@@ -17,13 +17,24 @@ void BasicBlock::push_ir_instr(int id, IRInstr *instruction) {
 }
 
 void BasicBlock::add_prev_bb(int prev_label) {
-  // //! check if there is already exists, avoid redundance
+  //! check if there is already exists, avoid redundance
   if (count(prev_bb.begin(), prev_bb.end(), prev_label)) {
     throw RuntimeError("basic block " + std::to_string(label) +
                        " already have previous basic block " +
                        std::to_string(prev_label));
   } else {
     prev_bb.emplace_back(prev_label);
+  }
+}
+
+void BasicBlock::add_next_bb(int next_label) {
+  //! check if there is already exists, avoid redundance
+  if (count(next_bb.begin(), next_bb.end(), next_label)) {
+    throw RuntimeError("basic block " + std::to_string(label) +
+                       " already have next basic block " +
+                       std::to_string(next_label));
+  } else {
+    next_bb.emplace_back(next_label);
   }
 }
 

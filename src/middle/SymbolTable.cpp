@@ -98,6 +98,13 @@ void FunctionEntry::visit_basic_blocks() {
     }
     std::cout << std::endl;
     bb->print_ir_code();
+    if (bb->get_next_bb().size()) {
+      std::cout << "; next = ";
+      for (auto label : bb->get_next_bb()) {
+        std::cout << "%" << label << ", ";
+      }
+      std::cout << std::endl;
+    }
     std::cout << std::endl;
   }
 }

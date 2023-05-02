@@ -632,6 +632,7 @@ antlrcpp::Any SysYAstVisitor::visitIfStmt1(SysYParser::IfStmt1Context *ctx) {
     ftable.get_func(cur_func_name)
         ->push_instr(cur_bb, new BranchIR(false_branch_bb->label));
     false_branch_bb->add_prev_bb(cur_bb->label);
+    cur_bb->add_next_bb(false_branch_bb->label);
   } else {
     // may have return in true branch
   }
@@ -662,6 +663,7 @@ antlrcpp::Any SysYAstVisitor::visitIfStmt2(SysYParser::IfStmt2Context *ctx) {
     ftable.get_func(cur_func_name)
         ->push_instr(true_branch_last_bb, new BranchIR(cur_bb->label));
     cur_bb->add_prev_bb(true_branch_last_bb->label);
+    true_branch_last_bb->add_next_bb(cur_bb->label);
   } else {
     // may have return in true branch
   }
@@ -670,6 +672,7 @@ antlrcpp::Any SysYAstVisitor::visitIfStmt2(SysYParser::IfStmt2Context *ctx) {
     ftable.get_func(cur_func_name)
         ->push_instr(false_branch_last_bb, new BranchIR(cur_bb->label));
     cur_bb->add_prev_bb(false_branch_last_bb->label);
+    false_branch_last_bb->add_next_bb(cur_bb->label);
   } else {
     // may have return in true branch
   }
@@ -686,6 +689,7 @@ SysYAstVisitor::visitWhileStmt(SysYParser::WhileStmtContext *ctx) {
   ftable.get_func(cur_func_name)
       ->push_instr(cur_bb, new BranchIR(cond_bb->label));
   cond_bb->add_prev_bb(cur_bb->label);
+  cur_bb->add_next_bb(cond_bb->label);
   cur_bb = cond_bb;
   ctx->cond()->accept(this);
   break_target_bb.push_back(false_bb_stack.back());
@@ -697,6 +701,7 @@ SysYAstVisitor::visitWhileStmt(SysYParser::WhileStmtContext *ctx) {
     ftable.get_func(cur_func_name)
         ->push_instr(cur_bb, new BranchIR(continue_target_bb.back()->label));
     continue_target_bb.back()->add_prev_bb(cur_bb->label);
+    cur_bb->add_next_bb(continue_target_bb.back()->label);
   } else {
     // while last true basic block may return early
   }
@@ -719,6 +724,8 @@ SysYAstVisitor::visitBreakStmt(SysYParser::BreakStmtContext *ctx) {
   }
   ftable.get_func(cur_func_name)
       ->push_instr(cur_bb, new BranchIR(break_target_bb.back()->label));
+  break_target_bb.back()->add_prev_bb(cur_bb->label);
+  cur_bb->add_next_bb(break_target_bb.back()->label);
   auto cur_func = ftable.get_func(cur_func_name);
   cur_bb = cur_func->alloc_bb(); // unreachable block, drop in next pass
   spdlog::debug("leaveBreakStmt");
@@ -734,6 +741,8 @@ SysYAstVisitor::visitContinueStmt(SysYParser::ContinueStmtContext *ctx) {
   }
   ftable.get_func(cur_func_name)
       ->push_instr(cur_bb, new BranchIR(continue_target_bb.back()->label));
+  continue_target_bb.back()->add_prev_bb(cur_bb->label);
+  cur_bb->add_next_bb(continue_target_bb.back()->label);
   auto cur_func = ftable.get_func(cur_func_name);
   cur_bb = cur_func->alloc_bb(); // unreachable block, drop in next pass
   spdlog::debug("leaveContinueStmt");
@@ -765,6 +774,7 @@ SysYAstVisitor::visitReturnStmt(SysYParser::ReturnStmtContext *ctx) {
           ftable.get_func(cur_func_name)
               ->push_instr(cur_bb, new BranchIR(ret_bb_opt.value()->label));
           ret_bb_opt.value()->add_prev_bb(cur_bb->label);
+          cur_bb->add_next_bb(ret_bb_opt.value()->label);
         }
       } else if (depth >= 2) {
         // in a scope, store return value and jump to return basic block
@@ -778,6 +788,7 @@ SysYAstVisitor::visitReturnStmt(SysYParser::ReturnStmtContext *ctx) {
         ftable.get_func(cur_func_name)
             ->push_instr(cur_bb, new BranchIR(ret_bb_opt.value()->label));
         ret_bb_opt.value()->add_prev_bb(cur_bb->label);
+        cur_bb->add_next_bb(ret_bb_opt.value()->label);
       }
     }
   } else {
@@ -794,6 +805,7 @@ SysYAstVisitor::visitReturnStmt(SysYParser::ReturnStmtContext *ctx) {
           ftable.get_func(cur_func_name)
               ->push_instr(cur_bb, new BranchIR(ret_bb_opt.value()->label));
           ret_bb_opt.value()->add_prev_bb(cur_bb->label);
+          cur_bb->add_next_bb(ret_bb_opt.value()->label);
         }
       } else if (depth >= 2) {
         if (ret_bb_opt == std::nullopt) {
@@ -802,6 +814,7 @@ SysYAstVisitor::visitReturnStmt(SysYParser::ReturnStmtContext *ctx) {
         ftable.get_func(cur_func_name)
             ->push_instr(cur_bb, new BranchIR(ret_bb_opt.value()->label));
         ret_bb_opt.value()->add_prev_bb(cur_bb->label);
+        cur_bb->add_next_bb(ret_bb_opt.value()->label);
       }
     } else {
       throw RuntimeError("return value not found in a non-void function");
@@ -833,7 +846,9 @@ antlrcpp::Any SysYAstVisitor::visitCond(SysYParser::CondContext *ctx) {
         ->push_instr(cur_bb, new BranchIR(res, true_branch_bb->label,
                                           false_branch_bb->label));
     true_branch_bb->add_prev_bb(cur_bb->label);
+    cur_bb->add_next_bb(true_branch_bb->label);
     false_branch_bb->add_prev_bb(cur_bb->label);
+    cur_bb->add_next_bb(false_branch_bb->label);
   } else {
     RuntimeError("shoud have condition");
   }
@@ -1292,7 +1307,9 @@ antlrcpp::Any SysYAstVisitor::visitLAnd2(SysYParser::LAnd2Context *ctx) {
       ->push_instr(cur_bb, new BranchIR(lhs, true_branch_bb->label,
                                         false_branch_bb->label));
   true_branch_bb->add_prev_bb(cur_bb->label);
+  cur_bb->add_next_bb(true_branch_bb->label);
   false_branch_bb->add_prev_bb(cur_bb->label);
+  cur_bb->add_next_bb(false_branch_bb->label);
   // basic block true_branch_bb for (&& rhs)
   cur_bb = true_branch_bb;
   auto rhs = ctx->eqExp()->accept(this);
@@ -1340,7 +1357,9 @@ antlrcpp::Any SysYAstVisitor::visitLOr2(SysYParser::LOr2Context *ctx) {
       ->push_instr(cur_bb, new BranchIR(lhs, true_branch_bb->label,
                                         false_branch_bb->label));
   true_branch_bb->add_prev_bb(cur_bb->label);
+  cur_bb->add_next_bb(true_branch_bb->label);
   false_branch_bb->add_prev_bb(cur_bb->label);
+  cur_bb->add_next_bb(false_branch_bb->label);
   cur_bb = false_branch_bb;
   auto rhs = ctx->lAndExp()->accept(this);
   spdlog::debug("leaveLOr2");
