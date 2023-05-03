@@ -623,7 +623,9 @@ antlrcpp::Any SysYAstVisitor::visitIfStmt1(SysYParser::IfStmt1Context *ctx) {
   ctx->cond()->accept(this);
   cur_bb = true_bb_stack.back();
   cur_bb->update_alias("if.then");
+  depth += 1;
   ctx->stmt()->accept(this);
+  depth -= 1;
   true_bb_stack.pop_back();
   auto false_branch_bb = false_bb_stack.back();
   false_bb_stack.pop_back();
@@ -648,12 +650,16 @@ antlrcpp::Any SysYAstVisitor::visitIfStmt2(SysYParser::IfStmt2Context *ctx) {
   ctx->cond()->accept(this);
   cur_bb = true_bb_stack.back();
   cur_bb->update_alias("if.then");
+  depth += 1;
   ctx->stmt(0)->accept(this);
+  depth -= 1;
   auto true_branch_last_bb = cur_bb;
   auto false_branch_bb = false_bb_stack.back();
   cur_bb = false_branch_bb;
   cur_bb->update_alias("if.else");
+  depth += 1;
   ctx->stmt(1)->accept(this);
+  depth -= 1;
   auto false_branch_last_bb = cur_bb;
   true_bb_stack.pop_back();
   false_bb_stack.pop_back();
